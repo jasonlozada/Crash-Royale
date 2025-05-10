@@ -35,6 +35,7 @@ const acceleration = 0.02;
 const maxSpeed = 0.5;
 const turnSpeed = 0.03;
 
+// --- Animate
 function animate() {
   requestAnimationFrame(animate);
 
@@ -71,6 +72,7 @@ function updateCar(car, camera, keys, forwardKey, backwardKey, leftKey, rightKey
   car.position.x += Math.sin(state.dir) * state.speed;
   car.position.z += Math.cos(state.dir) * state.speed;
 
+  // Camera follow
   const camDistance = 10;
   const camHeight = 5;
   const camOffsetX = Math.sin(state.dir) * -camDistance;
