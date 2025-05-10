@@ -1,83 +1,100 @@
 import * as THREE from 'three';
 
-// main.js
-
-// Camera & Renderer
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+// --- Renderer
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Car (placeholder cube)
+// --- Cameras
+const camera1 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.innerHeight), 0.1, 1000);
+const camera2 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.innerHeight), 0.1, 1000);
+
+// --- Cars
 const carGeometry = new THREE.BoxGeometry(2, 1, 4);
-const carMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
-const car = new THREE.Mesh(carGeometry, carMaterial);
-car.position.y = 0.5;
-scene.add(car);  // use scene from arena.js
+const carMaterial1 = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+const carMaterial2 = new THREE.MeshPhongMaterial({ color: 0x0000ff });
 
-// Movement variables
-let speed = 0;
-const acceleration = 0.02;
-const maxSpeed = 0.5;
-const turnSpeed = 0.03;
-let direction = 0;
+const car1 = new THREE.Mesh(carGeometry, carMaterial1);
+const car2 = new THREE.Mesh(carGeometry, carMaterial2);
 
-// Keyboard controls
+car1.position.set(0, 0.5, 0);
+car2.position.set(10, 0.5, 0);
+
+scene.add(car1);
+scene.add(car2);
+
+// --- Controls
 const keys = {};
 window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
+// --- Movement variables
+const state1 = { speed: 0, dir: 0 };
+const state2 = { speed: 0, dir: 0 };
+const acceleration = 0.02;
+const maxSpeed = 0.5;
+const turnSpeed = 0.03;
+
+// --- Animate
 function animate() {
   requestAnimationFrame(animate);
 
-  // Get camera forward and right vectors
-  const cameraDirection = new THREE.Vector3();
-  camera.getWorldDirection(cameraDirection);
-  cameraDirection.y = 0;
-  cameraDirection.normalize();
+  updateCar(car1, camera1, keys, 'w', 's', 'a', 'd', state1);
+  updateCar(car2, camera2, keys, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', state2);
 
-  const rightVector = new THREE.Vector3();
-  rightVector.crossVectors(cameraDirection, new THREE.Vector3(0, 1, 0)).normalize();
+  renderer.setScissorTest(true);
 
-  let moveDirection = new THREE.Vector3();
+  // Left viewport
+  renderer.setViewport(0, 0, window.innerWidth / 2, window.innerHeight);
+  renderer.setScissor(0, 0, window.innerWidth / 2, window.innerHeight);
+  renderer.render(scene, camera1);
 
-  if (keys['w']) moveDirection.add(cameraDirection);
-  if (keys['s']) moveDirection.sub(cameraDirection);
-  if (keys['a']) moveDirection.sub(rightVector);
-  if (keys['d']) moveDirection.add(rightVector);
+  // Right viewport
+  renderer.setViewport(window.innerWidth / 2, 0, window.innerWidth / 2, window.innerHeight);
+  renderer.setScissor(window.innerWidth / 2, 0, window.innerWidth / 2, window.innerHeight);
+  renderer.render(scene, camera2);
 
-  if (moveDirection.lengthSq() > 0) {
-    moveDirection.normalize();
-    speed = Math.min(speed + acceleration, maxSpeed);
-  } else {
-    speed *= 0.98;
-  }
+  renderer.setScissorTest(false);
+}
 
-  car.position.add(moveDirection.multiplyScalar(speed));
+// --- Update function for each car
+function updateCar(car, camera, keys, forwardKey, backwardKey, leftKey, rightKey, state) {
+  // Movement input
+  if (keys[forwardKey]) state.speed = Math.min(state.speed + acceleration, maxSpeed);
+  else if (keys[backwardKey]) state.speed = Math.max(state.speed - acceleration, -maxSpeed);
+  else state.speed *= 0.98; // friction
 
-  if (speed > 0.001) {
-    car.lookAt(car.position.clone().add(moveDirection));
-  }
+  if (keys[leftKey]) state.dir += turnSpeed;
+  if (keys[rightKey]) state.dir -= turnSpeed;
 
+  // Update position
+  car.rotation.y = state.dir;
+  car.position.x += Math.sin(state.dir) * state.speed;
+  car.position.z += Math.cos(state.dir) * state.speed;
+
+  // Camera follow
   const camDistance = 10;
   const camHeight = 5;
-  const behindVector = cameraDirection.clone().multiplyScalar(-camDistance);
-  camera.position.copy(car.position).add(behindVector).add(new THREE.Vector3(0, camHeight, 0));
+  const camOffsetX = Math.sin(state.dir) * -camDistance;
+  const camOffsetZ = Math.cos(state.dir) * -camDistance;
+  camera.position.x = car.position.x + camOffsetX;
+  camera.position.y = car.position.y + camHeight;
+  camera.position.z = car.position.z + camOffsetZ;
   camera.lookAt(car.position);
 
-  // Move ground texture to simulate movement
+  // Move arena texture to simulate motion
   groundTexture.offset.x = car.position.x * 0.01;
   groundTexture.offset.y = car.position.z * 0.01;
-
-  renderer.render(scene, camera);
 }
 
 animate();
 
-// Handle window resize
+// --- Resize
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  camera1.aspect = window.innerWidth / (2 * window.innerHeight);
+  camera1.updateProjectionMatrix();
+  camera2.aspect = window.innerWidth / (2 * window.innerHeight);
+  camera2.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
