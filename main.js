@@ -10,7 +10,7 @@ document.body.appendChild(renderer.domElement);
 
 // Car (placeholder cube)
 const carGeometry = new THREE.BoxGeometry(2, 1, 4);
-const carMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+const carMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
 const car = new THREE.Mesh(carGeometry, carMaterial);
 car.position.y = 0.5;
 scene.add(car);  // use scene from arena.js
@@ -80,3 +80,4 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
