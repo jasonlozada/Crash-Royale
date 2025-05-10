@@ -24,8 +24,4 @@ scene.add(ambient);
 
 // Export scene and groundTexture globally so main.js can access
 window.scene = scene;
-<<<<<<< HEAD
 window.groundTexture = groundTexture;
-=======
-window.groundTexture = groundTexture;
->>>>>>> dc4d1fca2bf81eca1b9f6e14458c2827165b1083
