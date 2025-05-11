@@ -1,27 +1,52 @@
 import * as THREE from 'three';
 
-// Create scene
-const scene = new THREE.Scene();
-
-// Load ground texture
-const textureLoader = new THREE.TextureLoader();
-const groundTexture = textureLoader.load('https://threejs.org/examples/textures/checker.png');
-groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-groundTexture.repeat.set(100, 100);
-
-const groundMaterial = new THREE.MeshPhongMaterial({ map: groundTexture, side: THREE.DoubleSide });
-const groundGeometry = new THREE.PlaneGeometry(500, 500);
-const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-
-// Lighting
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(10, 20, 10);
-scene.add(light);
-const ambient = new THREE.AmbientLight(0x404040);
-scene.add(ambient);
-
-// Export scene and groundTexture globally so main.js can access
+const scene = window.scene || new THREE.Scene();
 window.scene = scene;
-window.groundTexture = groundTexture;
+
+scene.background = new THREE.Color(0x87CEEB);
+// --- Lights
+const dir = new THREE.DirectionalLight(0xffffff, 1);
+dir.position.set(10, 20, 10);
+scene.add(dir);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+// --- Texture load
+const loader      = new THREE.TextureLoader();
+const sandTexture = loader.load('arenaTextures/sandTexture.jpg');
+sandTexture.wrapS = sandTexture.wrapT = THREE.RepeatWrapping;
+sandTexture.repeat.set(8, 8);
+
+// --- Floor
+const radius = 35, segs = 64;
+const floorGeo = new THREE.CircleGeometry(radius, segs);
+const floorMat = new THREE.MeshStandardMaterial({
+  map:       sandTexture,
+  color:     0xEED9A2,
+  side:      THREE.DoubleSide,
+  roughness: 1.0,
+  metalness: 0.0
+});
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// --- Dunes 
+const duneHeight = 5, duneRadius = 5, duneSegs = 64;
+const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
+
+class dune extends THREE.Mesh{
+    dune = new THREE.Mesh(coneGeo, floorMat);
+    constructor(x, y, z) {
+        super(coneGeo, floorMat);
+        this.position.set(x, y, z);
+        this.receiveShadow = true;
+    }
+}
+const dune1 = new dune(18, 2.5, 5);
+const dune2 = new dune(-15, 2.5, -7);
+
+scene.add(dune1);
+scene.add(dune2);
+
+// --- 

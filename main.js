@@ -83,8 +83,8 @@ function updateCar(car, camera, keys, forwardKey, backwardKey, leftKey, rightKey
   camera.lookAt(car.position);
 
   // Move arena texture to simulate motion
-  groundTexture.offset.x = car.position.x * 0.01;
-  groundTexture.offset.y = car.position.z * 0.01;
+  //groundTexture.offset.x = car.position.x * 0.01;
+  //groundTexture.offset.y = car.position.z * 0.01;
 }
 
 animate();
