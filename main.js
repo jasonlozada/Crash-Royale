@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createManualCar, createSpeedLabel } from './car.js';
 
 // --- Renderer
 const renderer = new THREE.WebGLRenderer();
@@ -10,15 +11,15 @@ const camera1 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.
 const camera2 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.innerHeight), 0.1, 1000);
 
 // --- Cars
-const carGeometry = new THREE.BoxGeometry(2, 1, 4);
-const carMaterial1 = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-const carMaterial2 = new THREE.MeshPhongMaterial({ color: 0x0000ff });
+const car1 = createManualCar(0xff0000, 0, 0);
+const car2 = createManualCar(0x0000ff, 10, 0);
+const speedLabel1 = createSpeedLabel('0');
+const speedLabel2 = createSpeedLabel('0');
+car1.add(speedLabel1);
+car2.add(speedLabel2);
 
-const car1 = new THREE.Mesh(carGeometry, carMaterial1);
-const car2 = new THREE.Mesh(carGeometry, carMaterial2);
-
-car1.position.set(0, 0.5, 0);
-car2.position.set(10, 0.5, 0);
+speedLabel1.position.set(0, 2, 0); // position label above car
+speedLabel2.position.set(0, 2, 0);
 
 scene.add(car1);
 scene.add(car2);
@@ -29,11 +30,21 @@ window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
 // --- Movement variables
-const state1 = { speed: 0, dir: 0 };
+const state1 = { speed: 0, dir: 0, steering: 0 };
 const state2 = { speed: 0, dir: 0 };
-const acceleration = 0.02;
-const maxSpeed = 0.5;
+const acceleration = 0.01;
+const maxSpeed = 3;
 const turnSpeed = 0.03;
+
+function updateLabel(label, value) {
+  const ctx = label.userData.context;
+  const canvas = label.userData.canvas;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'white';
+  ctx.font = '48px sans-serif';
+  ctx.fillText(value + " km/h", 10, 64);
+  label.userData.texture.needsUpdate = true;
+}
 
 // --- Animate
 function animate() {
@@ -55,6 +66,10 @@ function animate() {
   renderer.render(scene, camera2);
 
   renderer.setScissorTest(false);
+  
+
+  updateLabel(speedLabel1, Math.round(Math.abs(car1.speed * 100)));
+  updateLabel(speedLabel2, Math.round(Math.abs(car2.speed * 100)));
 }
 
 // --- Update function for each car
@@ -67,10 +82,12 @@ function updateCar(car, camera, keys, forwardKey, backwardKey, leftKey, rightKey
   if (keys[leftKey]) state.dir += turnSpeed;
   if (keys[rightKey]) state.dir -= turnSpeed;
 
-  // Update position
+  // Update features
   car.rotation.y = state.dir;
   car.position.x += Math.sin(state.dir) * state.speed;
   car.position.z += Math.cos(state.dir) * state.speed;
+  car.speed = state.speed;
+  car.dir = state.dir;
 
   // Camera follow
   const camDistance = 10;
