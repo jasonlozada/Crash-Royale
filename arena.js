@@ -15,6 +15,9 @@ const loader      = new THREE.TextureLoader();
 const sandTexture = loader.load('arenaTextures/sandTexture.jpg');
 sandTexture.wrapS = sandTexture.wrapT = THREE.RepeatWrapping;
 sandTexture.repeat.set(8, 8);
+const stoneTexture = loader.load('arenaTextures/stoneTexture.jpg');
+stoneTexture.wrapS = stoneTexture.wrapT = THREE.RepeatWrapping;
+stoneTexture.repeat.set(8,8);
 
 // --- Floor
 const radius = 35, segs = 64;
@@ -45,8 +48,32 @@ class dune extends THREE.Mesh{
 }
 const dune1 = new dune(18, 2.5, 5);
 const dune2 = new dune(-15, 2.5, -7);
-
 scene.add(dune1);
 scene.add(dune2);
 
-// --- 
+// --- floorSide
+const topRadius = radius;
+const bottomRadius = radius * 1.25;
+const cylinderGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 20, segs);
+const floorSide = new THREE.Mesh(cylinderGeo, floorMat);
+floorSide.receiveShadow = true;
+floorSide.translateY(-10.01);
+scene.add(floorSide);
+
+// --- Base
+const width = 200, height = 200;
+const baseGeo = new THREE.PlaneGeometry(width, height, 64, 64);
+const baseMat = new THREE.MeshStandardMaterial({
+  map:       stoneTexture,
+  color:     0xEED9A2,
+  side:      THREE.DoubleSide,
+  roughness: 1.0,
+  metalness: 0.0
+});
+const base = new THREE.Mesh(baseGeo, baseMat);
+base.rotateX(3* Math.PI/2);
+base.translateZ(-20);
+scene.add(base);
+
+
+
