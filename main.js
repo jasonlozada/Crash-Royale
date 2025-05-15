@@ -1,9 +1,18 @@
 import * as THREE from 'three';
 
+
 // --- Renderer
-const renderer = new THREE.WebGLRenderer();
+
+const renderer = new THREE.WebGLRenderer({antialias: true});
+
+
+renderer.shadowMap.enabled = true; //for shadows
+renderer.shadowMap.type = THREE.VSMShadowMap; //for shadows (used  PCFSoftShadowMap and added ugly rows on floor)
+
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
+
 
 // --- Cameras
 const camera1 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.innerHeight), 0.1, 1000);
@@ -19,6 +28,8 @@ const car2 = new THREE.Mesh(carGeometry, carMaterial2);
 
 car1.position.set(0, 0.5, 0);
 car2.position.set(10, 0.5, 0);
+
+
 
 scene.add(car1);
 scene.add(car2);
@@ -97,3 +108,6 @@ window.addEventListener('resize', () => {
   camera2.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+
+
