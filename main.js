@@ -6,17 +6,6 @@ import { loadCarModel, setupCarPhysics, wrapWheelInPivot} from './car.js';
 
 // === NOTE: Scene is a global variable provided by arena.js ===
 
-// === Physics World Setup ===
-const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
-const groundShape = new CANNON.Box(new CANNON.Vec3(250, 0.1, 250));
-const groundBody = new CANNON.Body({
-  type: CANNON.Body.STATIC,
-  shape: groundShape,
-  position: new CANNON.Vec3(0, -0.1, 0)
-});
-world.addBody(groundBody);
-
-
 // === Renderer Setup ===
 
 const renderer = new THREE.WebGLRenderer({antialias: true});
@@ -93,6 +82,7 @@ loadCarModel('models/rover_blue.glb', null, (model) => {
 
 let car2 = null;
 loadCarModel('models/rover_red.glb', null, (model) => {
+  console.log("car2 loaded " + model.castShadow);
   car2 = model;
   car2.wheelRotationSpeed = 0;
   scene.add(car2);
@@ -103,6 +93,9 @@ loadCarModel('models/rover_red.glb', null, (model) => {
   car2.attach(car2.frontLeftPivot);
   car2.attach(car2.frontRightPivot);
 });
+
+
+
 
 // === Car Movement + Physics/Visual Update ===
 function updateCar(car, camera, keys, fw, bw, left, right, state) {

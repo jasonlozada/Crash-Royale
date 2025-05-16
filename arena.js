@@ -1,9 +1,7 @@
 import * as THREE from 'three';
-
-const scene = window.scene || new THREE.Scene();
-
-window.scene = scene;
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as CANNON from 'cannon-es';
+const scene = window.scene || new THREE.Scene();
 
 // --- Sky
 // Create a vertical gradient canvas
@@ -71,8 +69,6 @@ sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
 sandBrick.repeat.set(32,8);
 
 
-
-
 // --- Floor (Floor of arena)
 const radius = 35, segs = 64;
 const floorGeo = new THREE.CircleGeometry(radius, segs);
@@ -88,7 +84,16 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
+// === Physics World Setup ===
+const world = new CANNON.World({ gravity: new CANNON.Vec3(-9.8, -9.82, 0) });
+// Create a thin cylinder to approximate the arena's circular floor
+const groundBody = new CANNON.Body({
+  mass: 0, // static
+  shape: new CANNON.Cylinder(radius, radius, 238.21, 64),
+  position: new CANNON.Vec3(0, -119.1, 0)
+});
 
+world.addBody(groundBody);
 
 
 // --- Dunes 
@@ -109,8 +114,6 @@ scene.add(dune1);
 scene.add(dune2);
 
 
-
-
 // --- floorSide (side of Pillar)
 const floorSideMat = new THREE.MeshStandardMaterial({
   map:       sandBrick,
@@ -128,8 +131,6 @@ floorSide.translateY(-60.01);
 scene.add(floorSide);
 
 
-
-
 // --- Base (Floor outside arena)
 const width = 5000, height = 5000;
 const baseGeo = new THREE.PlaneGeometry(width, height, 64, 64);
@@ -145,8 +146,6 @@ const base = new THREE.Mesh(baseGeo, baseMat);
 base.rotateX(3* Math.PI/2);
 base.translateZ(-120);
 scene.add(base);
-
-
 
 
 // --- Cactus model
@@ -219,8 +218,6 @@ for (let i = 0; i < mountainCount; i++) {
 scene.add(mountains);
 
 
-
-
 // --- adding shadows to objects
 floor.receiveShadow = true;
 floor.castShadow = false;
@@ -239,6 +236,9 @@ base.castShadow = false;
 mountains.receiveShadow = false;
 mountains.castShadow = false;
 
+// Global Variable (DO NOT CHANGE)
+window.scene = scene;
+window.world = world; 
 
 // add to car.js 
 /*
