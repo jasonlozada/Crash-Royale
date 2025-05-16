@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 
 const scene = window.scene || new THREE.Scene();
+
 window.scene = scene;
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-
-
 
 // --- Sky
 // Create a vertical gradient canvas
