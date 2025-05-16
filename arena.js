@@ -157,7 +157,7 @@ gltfLoader.load(
 'arenaProps/Cactus.glb',
 (gltf) => { 
 const proto = gltf.scene;
-const numCacti = 20;
+const numCacti = 40;
 const spread = 600;
 for (let i = 0; i < numCacti; i++) {
   const cactus = proto.clone(true);
