@@ -16,8 +16,12 @@ const groundBody = new CANNON.Body({
 });
 world.addBody(groundBody);
 
+
 // === Renderer Setup ===
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.shadowMap.enabled = true; //for shadows
+renderer.shadowMap.type = THREE.VSMShadowMap; //for shadows (used  PCFSoftShadowMap and added ugly rows on floor)
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
@@ -99,7 +103,6 @@ loadCarModel('models/rover_red.glb', null, (model) => {
   car2.attach(car2.frontLeftPivot);
   car2.attach(car2.frontRightPivot);
 });
-
 
 // === Car Movement + Physics/Visual Update ===
 function updateCar(car, camera, keys, fw, bw, left, right, state) {
@@ -212,10 +215,10 @@ function animate() {
   renderer.render(scene, camera2);
 
   renderer.setScissorTest(false);
-
   // Coordinate Display 
   updateHUD(car1, coordDisplay1, speedLabel1);
   updateHUD(car2, coordDisplay2, speedLabel2);
+
 }
 
 animate();
@@ -228,3 +231,4 @@ window.addEventListener('resize', () => {
   camera2.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
