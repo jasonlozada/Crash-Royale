@@ -13,6 +13,7 @@ const groundMaterial = new THREE.MeshPhongMaterial({ map: groundTexture, side: T
 const groundGeometry = new THREE.PlaneGeometry(500, 500);
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.rotation.x = -Math.PI / 2;
+ground.position.y = 0;
 scene.add(ground);
 
 // Lighting
