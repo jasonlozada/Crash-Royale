@@ -85,7 +85,7 @@ floor.receiveShadow = true;
 scene.add(floor);
 
 // === Physics World Setup ===
-const world = new CANNON.World({ gravity: new CANNON.Vec3(-9.8, -9.82, 0) });
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
 // Create a thin cylinder to approximate the arena's circular floor
 const groundBody = new CANNON.Body({
   mass: 0, // static

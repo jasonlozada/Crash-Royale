@@ -132,8 +132,12 @@ function updateCar(car, camera, keys, fw, bw, left, right, state) {
   if (Math.abs(car.wheelRotationSpeed) > 0.001) {
     const speedFactor = Math.abs(car.wheelRotationSpeed / maxWheelSpeed); // 0 to 1
     const turnRate = 0.03 * speedFactor;
-    if (keys[left]) state.dir += turnRate;
-    if (keys[right]) state.dir -= turnRate;
+
+    const reversing = car.wheelRotationSpeed < 0;
+    const dirMultiplier = reversing ? -1 : 1;
+
+    if (keys[left]) state.dir += turnRate * dirMultiplier;;
+    if (keys[right]) state.dir -= turnRate * dirMultiplier;
   }
 
 
