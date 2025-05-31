@@ -48,7 +48,7 @@ dir.shadow.camera.bottom = 6*-d;
 dir.shadow.camera.updateProjectionMatrix();
 
 scene.add(dir);
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
 
 
@@ -69,31 +69,20 @@ sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
 sandBrick.repeat.set(32,8);
 
 
-// --- Floor (Floor of arena)
+// --- towerFloor (Floor of tower)
 const radius = 35, segs = 64;
-const floorGeo = new THREE.CircleGeometry(radius, segs);
-const floorMat = new THREE.MeshStandardMaterial({
+const towerFloorGeo = new THREE.CircleGeometry(radius, segs);
+const towerFloorMat = new THREE.MeshStandardMaterial({
   map:       sandTexture,
   color:     0xEED9A2,
   side:      THREE.DoubleSide,
   roughness: 1.0,
   metalness: 0.0
 });
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-// === Physics World Setup ===
-const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
-// Create a thin cylinder to approximate the arena's circular floor
-const groundBody = new CANNON.Body({
-  mass: 0, // static
-  shape: new CANNON.Cylinder(radius, radius, 238.21, 64),
-  position: new CANNON.Vec3(0, -119.1, 0)
-});
-
-world.addBody(groundBody);
+const towerFloor = new THREE.Mesh(towerFloorGeo, towerFloorMat);
+towerFloor.rotation.x = -Math.PI / 2;
+towerFloor.receiveShadow = true;
+scene.add(towerFloor);
 
 
 // --- Dunes 
@@ -101,21 +90,21 @@ const duneHeight = 5, duneRadius = 5, duneSegs = 64;
 const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
 
 class dune extends THREE.Mesh{
-    dune = new THREE.Mesh(coneGeo, floorMat);
+    dune = new THREE.Mesh(coneGeo, towerFloorMat);
     constructor(x, y, z) {
-        super(coneGeo, floorMat);
+        super(coneGeo, towerFloorMat);
         this.position.set(x, y, z);
         this.receiveShadow = true;
     }
 }
-const dune1 = new dune(18, 2.6, 5);
-const dune2 = new dune(-15, 2.6, -7);
+const dune1 = new dune(18, 2.5, 5);   
+const dune2 = new dune(-15, 2.5, -7); 
 scene.add(dune1);
 scene.add(dune2);
 
 
-// --- floorSide (side of Pillar)
-const floorSideMat = new THREE.MeshStandardMaterial({
+// --- towerSide (side of tower)
+const towerSideMat = new THREE.MeshStandardMaterial({
   map:       sandBrick,
   color:     0xEED9A2,
   side:      THREE.DoubleSide,
@@ -123,15 +112,26 @@ const floorSideMat = new THREE.MeshStandardMaterial({
   metalness: 0.0
 });
 const topRadius = 1 + radius;
-const bottomRadius = radius * 1.25;
-const cylinderGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 120, segs);
-const floorSide = new THREE.Mesh(cylinderGeo, floorSideMat);
-floorSide.receiveShadow = true;
-floorSide.translateY(-60.01);
-scene.add(floorSide);
+const bottomRadius = topRadius; // Make the cylinder straight
+const towerSideGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 80, segs); // height = 80
+const towerSide = new THREE.Mesh(towerSideGeo, towerSideMat);
+towerSide.receiveShadow = true;
+towerSide.translateY(-40.01); 
+scene.add(towerSide);
+
+// === Physics World Setup ===
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
+// Create a cylinder to match the tower (including towerFloor)
+const groundBody = new CANNON.Body({
+  mass: 0, // static
+  shape: new CANNON.Cylinder(topRadius, topRadius, 80, segs), // match tower
+  position: new CANNON.Vec3(0, -40, 0) // center matches tower mesh
+});
+
+world.addBody(groundBody);
 
 
-// --- Base (Floor outside arena)
+// --- Base (Floor outside tower)
 const width = 5000, height = 5000;
 const baseGeo = new THREE.PlaneGeometry(width, height, 64, 64);
 
@@ -144,7 +144,7 @@ const baseMat = new THREE.MeshStandardMaterial({
 });
 const base = new THREE.Mesh(baseGeo, baseMat);
 base.rotateX(3* Math.PI/2);
-base.translateZ(-120);
+base.translateZ(-80); 
 scene.add(base);
 
 
@@ -161,7 +161,7 @@ for (let i = 0; i < numCacti; i++) {
   const cactus = proto.clone(true);
   const x = (Math.random() * 2 - 1) * spread;
   const z = (Math.random() * 2 - 1) * spread;
-  cactus.position.set(x, -120, z);
+  cactus.position.set(x, -80, z); 
   cactus.rotation.y = Math.random() * Math.PI * 2;
   const s = 0.5 + Math.random() * 1.5;
   cactus.scale.set(s, s, s);
@@ -201,7 +201,7 @@ for (let i = 0; i < mountainCount; i++) {
 
   // random height between 70 and 140 units
   const height = 70 + Math.random() * 70;
-  const baseY  = -120;             // same Y as your base plane
+  const baseY  = -80;             // updated to match new base level
   tmp.position.set(
     Math.cos(ang) * dist,
     baseY + height * 0.5,           // raise so half the cone sits below the apex
@@ -219,16 +219,16 @@ scene.add(mountains);
 
 
 // --- adding shadows to objects
-floor.receiveShadow = true;
-floor.castShadow = false;
+towerFloor.receiveShadow = true;
+towerFloor.castShadow = false;
 
 dune1.receiveShadow = false;
 dune1.castShadow = true;
 dune2.receiveShadow = false;
 dune2.castShadow = true;
 
-floorSide.receiveShadow = false;
-floorSide.castShadow = true;
+towerSide.receiveShadow = false;
+towerSide.castShadow = true;
 
 base.receiveShadow = true;
 base.castShadow = false;
