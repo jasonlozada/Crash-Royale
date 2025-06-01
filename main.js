@@ -1,8 +1,18 @@
 import * as THREE from 'three';
-import { loadCarModel, setupCarPhysics, wrapWheelInPivot, handleFalling} from './car.js';
-import { createCoordDisplay, createSpeedLabel, createScoreLabel, updateHUD, initStats } from './display.js';
+import { loadCarModel, setupCarPhysics, handleFalling, createTextSprite, updateCarScoreLabel} from './car.js';
+import { createCoordDisplay, createSpeedLabel, 
+  updateHUD, initStats, createTitleScreen, 
+  showLoadingScreen, updateLoadingProgress, hideLoadingScreen
+} from './display.js';
 
 
+
+let gameStarted = false;
+
+createTitleScreen(() => {
+  beginGameSetup();
+  // waitForArenaInit(); // load models, physics, etc.
+});
 
 // === Renderer Setup ===
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -30,9 +40,6 @@ const coordDisplay2 = createCoordDisplay(window.innerWidth / 2 + 10);
 const speedLabel1 = createSpeedLabel(window.innerWidth / 2 + 10);
 const speedLabel2 = createSpeedLabel(10);
 
-const scoreLabel1 = createScoreLabel(10);
-const scoreLabel2 = createScoreLabel(window.innerWidth / 2 + 10);
-
 // === State Objects for Car Controls ===
 const state1 = { speed: 0, dir: 0, steering: 0, accelTimer: 0,  camOffset: new THREE.Vector3(0, 5, -10)};
 const state2 = { speed: 0, dir: 0, steering: 0, accelTimer: 0,  camOffset: new THREE.Vector3(0, 5, -10)};
@@ -42,13 +49,6 @@ let car1 = null;
 let car2 = null;
 let car1Loaded = false;
 let car2Loaded = false;
-
-function checkCarsReady() {
-  if (car1Loaded && car2Loaded) {
-    animate();
-  }
-}
-
 
 function updateCar(car, keys, fw, bw, left, right, state, camera) {
   if (!car || !car.physicsBody) return;
@@ -179,57 +179,76 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   camera.lookAt(targetLookAt);
 }
 
-// === Wait for Ammo and scene setup from arena.js
+const loadProgress = { car1: 0, car2: 0 };
+
+
+function beginGameSetup() {
+  showLoadingScreen(); // Show loading screen with bar
+
+  waitForArenaInit().then(() => {
+    physicsWorld = window.physicsWorld;
+    const scene = window.scene;
+
+    loadCarModel('models/rover_blue.glb', scene, (model) => {
+      car1 = model;
+      setupCarPhysics(car1, physicsWorld, { x: 10, y: 0.5, z: 0 });
+
+      const label = createTextSprite('0');
+      label.position.set(0, 1, 0);
+      car1.add(label);
+      car1.userData.scoreLabel = label;
+
+      car1Loaded = true;
+      checkCarsReady();
+    }),
+
+    loadCarModel('models/rover_red.glb', scene, (model) => {
+      car2 = model;
+      setupCarPhysics(car2, physicsWorld, { x: 0, y: 0.5, z: 0 });
+
+      const label = createTextSprite('0');
+      label.position.set(0, 1, 0);
+      car2.add(label);
+      car2.userData.scoreLabel = label;
+
+      car2Loaded = true;
+      checkCarsReady();
+    }, 
+      (percent) => {
+      loadProgress.car1 = percent;
+      loadProgress.car2 = percent;
+      updateLoadingProgress((loadProgress.car1 + loadProgress.car2) / 2);
+    });
+  });
+}
+
+// === Step 3: Wait for Ammo and Scene to Load ===
 async function waitForArenaInit() {
   while (!window.Ammo || !window.physicsWorld || !window.scene) {
     await new Promise(res => setTimeout(res, 30));
   }
 }
 
-waitForArenaInit().then(() => {
-  physicsWorld = window.physicsWorld;
-  const scene = window.scene;
+// === Step 4: Check if Both Cars Are Ready ===
+function checkCarsReady() {
+  if (car1Loaded && car2Loaded) {
+    updateLoadingProgress(100); // force full progress bar
+    setTimeout(() => {
+      hideLoadingScreen();
+      gameStarted = true;
+      animate(); // start game loop
+    }, 500);
+  }
+}
 
-  loadCarModel('models/rover_blue.glb', scene, (model) => {
-      car1 = model;
-      car1.name = "Car 1";
-      car1.wheelRotationSpeed = 0;
-      car1.score = 0;
-      car1.hasFallen = false;
 
-      setupCarPhysics(car1, physicsWorld, { x: 10, y: 0.5, z: 0 });
-      car1Loaded = true;
-      checkCarsReady();
-
-      car1.frontLeftPivot = wrapWheelInPivot(car1.frontLeftWheel);
-      car1.frontRightPivot = wrapWheelInPivot(car1.frontRightWheel);
-      car1.attach(car1.frontLeftPivot);
-      car1.attach(car1.frontRightPivot);
-  });
-
-  loadCarModel('models/rover_red.glb', scene, (model) => {
-    car2 = model;
-    car2.name = "Car 2";
-    car2.wheelRotationSpeed = 0;
-    car2.score = 0;
-    car2.hasFallen = false;
-
-    setupCarPhysics(car2, physicsWorld, { x: 0, y: 0.5, z: 0 });
-    car2Loaded = true;
-    checkCarsReady();
-
-    car2.frontLeftPivot = wrapWheelInPivot(car2.frontLeftWheel);
-    car2.frontRightPivot = wrapWheelInPivot(car2.frontRightWheel);
-    car2.attach(car2.frontLeftPivot);
-    car2.attach(car2.frontRightPivot);
-  });
-});
 
 const stats = initStats();
 
 function animate() {
-  stats.begin();
+  if (!gameStarted) return;
 
+  
   if (physicsWorld) physicsWorld.stepSimulation(1 / 60, 2);
 
 
@@ -253,9 +272,10 @@ function animate() {
 
   renderer.setScissorTest(false);
 
-  updateHUD(car1, coordDisplay1, speedLabel1, scoreLabel1);
-  updateHUD(car2, coordDisplay2, speedLabel2, scoreLabel2);
-  stats.end();
+  updateHUD(car1, coordDisplay1, speedLabel1);
+  updateHUD(car2, coordDisplay2, speedLabel2);
+  stats.update();
+
   requestAnimationFrame(animate);
 }
 

@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-const ARENA_RADIUS = 35;
-export function loadCarModel(modelPath, scene, onLoadCallback = () => {}) {
+export function loadCarModel(modelPath, scene, onLoadCallback = () => {}, onProgress = null) {
   const loader = new GLTFLoader();
 
   loader.load(
@@ -41,31 +40,16 @@ export function loadCarModel(modelPath, scene, onLoadCallback = () => {}) {
       if (scene) scene.add(model);
       onLoadCallback(model);
     },
-    undefined,
+     (xhr) => {
+      if (xhr.lengthComputable && typeof onProgress === 'function') {
+        const percent = (xhr.loaded / xhr.total) * 100;
+        onProgress(percent);
+      }
+    },
     (err) => {
       console.error('Failed to load car model:', err);
     }
   );
-}
-
-export function wrapWheelInPivot(wheelMesh) {
-  if (!wheelMesh) {
-    console.warn('wrapWheelInPivot called with undefined wheelMesh');
-    return null;
-  }
-
-  const pivot = new THREE.Group();
-  pivot.position.copy(wheelMesh.getWorldPosition(new THREE.Vector3()));
-
-  if (typeof window.scene !== 'undefined') {
-    window.scene.attach(pivot);
-  } else {
-    console.error('No scene found in global scope');
-  }
-
-  wheelMesh.position.set(0, 0, 0);
-  pivot.add(wheelMesh);
-  return pivot;
 }
 
 export function setupCarPhysics(car, physicsWorld, position) {
@@ -124,7 +108,8 @@ export function handleFalling(car, opponent, resetPosition = { x: 0, y: 2, z: 0 
   if (!car.hasFallen && car.position.y < fallThreshold) {
     // Mark car as fallen and give opponent a point
     car.hasFallen = true;
-    opponent.score = (opponent.score || 0) + 1;
+    opponent.userData.score = (opponent.userData.score || 0) + 1;
+    updateCarScoreLabel(opponent, opponent.userData.score);
     if (typeof window.updateScoreUI === 'function') {
       window.updateScoreUI();
     }
@@ -153,5 +138,44 @@ export function handleFalling(car, opponent, resetPosition = { x: 0, y: 2, z: 0 
 
 }
 
+export function createTextSprite(message, color = 'white') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
 
+  const context = canvas.getContext('2d');
+  context.font = '24px monospace';
+  context.fillStyle = color;
+  context.textAlign = 'center';
+  context.fillText(message, canvas.width / 2, 80);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(material);
+
+  sprite.scale.set(2, 1, 1); // Size of the label
+  return sprite;
+}
+
+export function updateCarScoreLabel(car, newScore) {
+  const sprite = car.userData.scoreLabel;
+  if (!sprite) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+
+  const context = canvas.getContext('2d');
+  context.font = '24px monospace';
+  context.fillStyle = 'white';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillText(`${newScore}`, canvas.width / 2, canvas.height / 2);
+
+  const newTexture = new THREE.CanvasTexture(canvas);
+  sprite.material.map.dispose(); // dispose old texture
+  sprite.material.map = newTexture;
+  sprite.material.needsUpdate = true;
+}
 
