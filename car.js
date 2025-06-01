@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+const ARENA_RADIUS = 35;
 export function loadCarModel(modelPath, scene, onLoadCallback = () => {}) {
   const loader = new GLTFLoader();
 
@@ -116,5 +117,41 @@ export function setupCarPhysics(car, physicsWorld, position) {
   car.physicsBody = body;
 
 }
+
+export function handleFalling(car, opponent, resetPosition = { x: 0, y: 2, z: 0 }) {
+  const fallThreshold = -10;
+
+  if (!car.hasFallen && car.position.y < fallThreshold) {
+    // Mark car as fallen and give opponent a point
+    car.hasFallen = true;
+    opponent.score = (opponent.score || 0) + 1;
+    if (typeof window.updateScoreUI === 'function') {
+      window.updateScoreUI();
+    }
+  }
+
+  if (car.hasFallen && car.position.y < fallThreshold) {
+   
+    // Stop motion
+    car.physicsBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
+    car.physicsBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
+
+    // Reset position
+    const resetTransform = new Ammo.btTransform();
+    resetTransform.setIdentity();
+    resetTransform.setOrigin(new Ammo.btVector3(
+      resetPosition.x, resetPosition.y, resetPosition.z
+    ));
+    car.physicsBody.setWorldTransform(resetTransform);
+
+    // Sync visuals
+    car.position.set(resetPosition.x, resetPosition.y, resetPosition.z);
+
+    // Clear fall status for future checks
+    car.hasFallen = false;
+  }
+
+}
+
 
 

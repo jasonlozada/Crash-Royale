@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { loadCarModel, setupCarPhysics, wrapWheelInPivot } from './car.js';
+import { loadCarModel, setupCarPhysics, wrapWheelInPivot, handleFalling} from './car.js';
+import { createCoordDisplay, createSpeedLabel, createScoreLabel, updateHUD, initStats } from './display.js';
+
+
 
 // === Renderer Setup ===
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -21,36 +24,14 @@ window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 // === HUD Setup ===
-function createCoordDisplay(leftOffset) {
-  const div = document.createElement('div');
-  div.className = 'coord-display';
-  div.style.position = 'fixed';
-  div.style.color = 'white';
-  div.style.fontFamily = 'monospace';
-  div.style.fontSize = '8px';
-  div.style.top = '10px';
-  div.style.left = `${leftOffset}px`;
-  div.style.zIndex = '10';
-  document.body.appendChild(div);
-  return div;
-}
 const coordDisplay1 = createCoordDisplay(10);
 const coordDisplay2 = createCoordDisplay(window.innerWidth / 2 + 10);
 
-function createSpeedLabel(rightOffset) {
-  const div = document.createElement('div');
-  div.style.position = 'fixed';
-  div.style.color = 'white';
-  div.style.fontFamily = 'monospace';
-  div.style.fontSize = '10px';
-  div.style.bottom = '10px';
-  div.style.right = `${rightOffset}px`;
-  div.style.zIndex = '10';
-  document.body.appendChild(div);
-  return div;
-}
 const speedLabel1 = createSpeedLabel(window.innerWidth / 2 + 10);
 const speedLabel2 = createSpeedLabel(10);
+
+const scoreLabel1 = createScoreLabel(10);
+const scoreLabel2 = createScoreLabel(window.innerWidth / 2 + 10);
 
 // === State Objects for Car Controls ===
 const state1 = { speed: 0, dir: 0, steering: 0, accelTimer: 0,  camOffset: new THREE.Vector3(0, 5, -10)};
@@ -81,11 +62,12 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   const steerTorque = 250;
   const steerLerpRate = 0.15;
   const lateralFrictionFactor = 100;
-  const ARENA_RADIUS = 35;
 
   const velocity = body.getLinearVelocity();
   const quaternion = car.quaternion;
 
+  body.setRestitution(1);
+  body.setFriction(0.5);
   // === Basis Vectors ===
   const forwardVec = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion).normalize();
   const rightVec = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion).normalize();
@@ -164,16 +146,6 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   car.wheelRotationSpeed = speed / (2 * Math.PI * wheelRadius);
   car.wheels?.forEach(w => w.rotation.x -= car.wheelRotationSpeed * 0.1);
 
-  // === Falling Down ===
-  const carXZPos = new THREE.Vector2(car.position.x, car.position.z);
-  const distFromCenter = carXZPos.length();
-  car.hasFallen ??= false;
-
-  if (!car.hasFallen && car.position.length() > ARENA_RADIUS) {
-    console.log("fallen");
-    car.hasFallen = true;
-    car.physicsBody.setAngularVelocity(new Ammo.btVector3(1, 0, 1));  // Optional: spin it
-  }
 
   // === Steering Pivots (Visual) ===
   const maxSteerAngle = 0.4;
@@ -207,18 +179,6 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   camera.lookAt(targetLookAt);
 }
 
-
-
-
-function updateHUD(car, coordDisplay, speedLabel) {
-  if (!car) return;
-  const pos = car.position;
-  coordDisplay.textContent = `X: ${pos.x.toFixed(2)}  Y: ${(pos.y - 0.5).toFixed(2)}  Z: ${pos.z.toFixed(2)}`;
-  const velocityInKph = car.speed * 3.6;
-  speedLabel.textContent = `${velocityInKph.toFixed(0)} km/h`;
-}
-
-
 // === Wait for Ammo and scene setup from arena.js
 async function waitForArenaInit() {
   while (!window.Ammo || !window.physicsWorld || !window.scene) {
@@ -231,42 +191,54 @@ waitForArenaInit().then(() => {
   const scene = window.scene;
 
   loadCarModel('models/rover_blue.glb', scene, (model) => {
-    car1 = model;
-    car1.wheelRotationSpeed = 0;
-    setupCarPhysics(car1, physicsWorld, { x: 10, y: 0.5, z: 0 });
-    car1Loaded = true;
-    checkCarsReady();
-    car1.frontLeftPivot = wrapWheelInPivot(car1.frontLeftWheel);
-    car1.frontRightPivot = wrapWheelInPivot(car1.frontRightWheel);
-    car1.attach(car1.frontLeftPivot);
-    car1.attach(car1.frontRightPivot);
-    // console.log(car2.physicsBody)
+      car1 = model;
+      car1.name = "Car 1";
+      car1.wheelRotationSpeed = 0;
+      car1.score = 0;
+      car1.hasFallen = false;
+
+      setupCarPhysics(car1, physicsWorld, { x: 10, y: 0.5, z: 0 });
+      car1Loaded = true;
+      checkCarsReady();
+
+      car1.frontLeftPivot = wrapWheelInPivot(car1.frontLeftWheel);
+      car1.frontRightPivot = wrapWheelInPivot(car1.frontRightWheel);
+      car1.attach(car1.frontLeftPivot);
+      car1.attach(car1.frontRightPivot);
   });
 
   loadCarModel('models/rover_red.glb', scene, (model) => {
     car2 = model;
+    car2.name = "Car 2";
     car2.wheelRotationSpeed = 0;
+    car2.score = 0;
+    car2.hasFallen = false;
+
     setupCarPhysics(car2, physicsWorld, { x: 0, y: 0.5, z: 0 });
     car2Loaded = true;
     checkCarsReady();
+
     car2.frontLeftPivot = wrapWheelInPivot(car2.frontLeftWheel);
     car2.frontRightPivot = wrapWheelInPivot(car2.frontRightWheel);
     car2.attach(car2.frontLeftPivot);
     car2.attach(car2.frontRightPivot);
-
-    // console.log(car2.physicsBody)
   });
 });
 
+const stats = initStats();
+
 function animate() {
-  
-  requestAnimationFrame(animate);
-  if (physicsWorld) physicsWorld.stepSimulation(1 / 60, 10);
+  stats.begin();
+
+  if (physicsWorld) physicsWorld.stepSimulation(1 / 60, 2);
 
 
   updateCar(car1, keys, 'w', 's', 'a', 'd', state1, camera1);
   updateCar(car2, keys, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', state2, camera2);
 
+    // === Falling Down ===
+  handleFalling(car1, car2, { x: 10, y: 2, z: 0 });
+  handleFalling(car2, car1, { x: -10, y: 2, z: 0 });
   renderer.setScissorTest(true);
 
   renderer.setViewport(0, 0, window.innerWidth / 2, window.innerHeight);
@@ -281,9 +253,10 @@ function animate() {
 
   renderer.setScissorTest(false);
 
-  updateHUD(car1, coordDisplay1, speedLabel1);
-  updateHUD(car2, coordDisplay2, speedLabel2);
-
+  updateHUD(car1, coordDisplay1, speedLabel1, scoreLabel1);
+  updateHUD(car2, coordDisplay2, speedLabel2, scoreLabel2);
+  stats.end();
+  requestAnimationFrame(animate);
 }
 
 window.addEventListener('resize', () => {

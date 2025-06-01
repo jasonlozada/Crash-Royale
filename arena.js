@@ -87,68 +87,33 @@ if (typeof window.Ammo === 'function') {
     physicsWorld = new Ammo.btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfig);
     physicsWorld.setGravity(new Ammo.btVector3(0, -9.82, 0));
     window.physicsWorld = physicsWorld;
-
+    
     const ARENA_RADIUS = 35;
-const GROUND_HEIGHT = 0.2;
-const WALL_HEIGHT = 120;
-const WALL_THICKNESS = 1;
-const SEGMENTS = 32;
+    const GROUND_HEIGHT = 0.2;
 
-// === Arena Ground Body (flat disc-like)
-const groundShape = new Ammo.btBoxShape(
-  new Ammo.btVector3(ARENA_RADIUS, GROUND_HEIGHT / 2, ARENA_RADIUS)
-);
+    // Arena Ground Body
+    const groundShape = new Ammo.btBoxShape(
+      new Ammo.btVector3(ARENA_RADIUS, GROUND_HEIGHT / 2, ARENA_RADIUS)
+    );
 
-const groundTransform = new Ammo.btTransform();
-groundTransform.setIdentity();
-groundTransform.setOrigin(new Ammo.btVector3(0, -GROUND_HEIGHT / 2, 0)); // y = 0 top surface
+    const groundTransform = new Ammo.btTransform();
+    groundTransform.setIdentity();
+    groundTransform.setOrigin(new Ammo.btVector3(0, -GROUND_HEIGHT / 2, 0)); // y=0 top surface
 
-const groundMotionState = new Ammo.btDefaultMotionState(groundTransform);
-const groundRbInfo = new Ammo.btRigidBodyConstructionInfo(
-  0, groundMotionState, groundShape, new Ammo.btVector3(0, 0, 0)
-);
-const groundBody = new Ammo.btRigidBody(groundRbInfo);
-groundBody.setFriction(1.0);
-physicsWorld.addRigidBody(groundBody);
-
-// === Circular Wall Colliders
-for (let i = 0; i < SEGMENTS; i++) {
-  const angle = (i / SEGMENTS) * 2 * Math.PI;
-  const x = Math.cos(angle) * ARENA_RADIUS;
-  const z = Math.sin(angle) * ARENA_RADIUS;
-  const rotY = angle;
-
-  // Wall segment shape (thin and tall)
-  const wallShape = new Ammo.btBoxShape(
-    new Ammo.btVector3(WALL_THICKNESS / 2, WALL_HEIGHT / 2, 1)
-  );
-
-
-  const wallTransform = new Ammo.btTransform();
-  const wallY = WALL_HEIGHT / 2;
-  wallTransform.setIdentity();
-  wallTransform.setOrigin(new Ammo.btVector3(x, wallY, z));
-
-  // Rotate so each wall segment faces center
-  const quat = new Ammo.btQuaternion();
-  quat.setRotation(new Ammo.btVector3(0, 1, 0), -rotY);
-  wallTransform.setRotation(quat);
-
-  const wallMotionState = new Ammo.btDefaultMotionState(wallTransform);
-  const wallRbInfo = new Ammo.btRigidBodyConstructionInfo(
-    0, wallMotionState, wallShape, new Ammo.btVector3(0, 0, 0)
-  );
-  const wallBody = new Ammo.btRigidBody(wallRbInfo);
-  wallBody.setFriction(1.0);
-  physicsWorld.addRigidBody(wallBody);
-}
-
-    console.log("Ammo.js physics world initialized");
-  });
+    const groundMotionState = new Ammo.btDefaultMotionState(groundTransform);
+    const groundRbInfo = new Ammo.btRigidBodyConstructionInfo(
+      0, groundMotionState, groundShape, new Ammo.btVector3(0, 0, 0)
+    );
+    const groundBody = new Ammo.btRigidBody(groundRbInfo);
+    groundBody.setFriction(1.0);
+    physicsWorld.addRigidBody(groundBody);
+        console.log("Ammo.js physics world initialized");
+      }).catch(err => {
+        console.error('Failed to load Ammo.js:', err);
+      });
 } else {
   console.error('Ammo not loaded. Make sure ammo.js is available globally.');
 }
-
 
 // --- Dunes
 const coneGeo = new THREE.ConeGeometry(5, 5, segs);
