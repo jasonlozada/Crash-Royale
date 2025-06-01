@@ -189,15 +189,59 @@ function updateHUD(car, coordDisplay, speedLabel) {
   speedLabel.textContent = `${velocityInKph.toFixed(0)} km/h`;
 }
 
+function isWheelOnGround(wheel) {
+  //Adjust threshold as needed
+  return wheel.getWorldPosition(new THREE.Vector3()).y < 3 && wheel.getWorldPosition(new THREE.Vector3()).y > -3;
+}
+
+function drawWheelTrails(car) {
+  if (!car || !car.wheels) return;
+  
+  car.wheels.forEach(wheel => {
+    
+  if (!isWheelOnGround(wheel)) return;
+    const pos = wheel.getWorldPosition(new THREE.Vector3());
+    if (pos.x * pos.x + pos.z * pos.z <= window.radius * window.radius) {
+      const [u, v] = window.worldToUV(pos.x, pos.z);
+      const cx = Math.floor(u * window.trailCanvasSize);
+      const cy = Math.floor(v * window.trailCanvasSize);
+      window.trailCtx.beginPath();
+      window.trailCtx.arc(cx, cy, 5, 0, 2 * Math.PI);
+      window.trailCtx.fillStyle = 'rgba(120, 100, 60, 0.85)'; 
+      window.trailCtx.fill();
+    }
+  });
+  window.trailTexture.needsUpdate = true;
+}
+
+let trailUpdateFrame = 0;
+const TRAIL_UPDATE_INTERVAL = 2; // Update every 5 frames (adjust as needed)
+
+
 // === Animation Loop ===
 function animate() {
+  
   requestAnimationFrame(animate);
+
+
 
   world.step(1 / 60);
   cannonDebugger.update();
 
   updateCar(car1, camera1, keys, 'w', 's', 'a', 'd', state1);
   updateCar(car2, camera2, keys, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', state2);
+
+
+  // Fade out old trails )
+  if (trailUpdateFrame % TRAIL_UPDATE_INTERVAL === 0) {
+    window.trailCtx.globalAlpha = 0.02;
+    fillCanvasWithRepeatedImage(window.trailCtx, window.sandImage, window.trailCanvasSize, 16);
+    window.trailCtx.globalAlpha = 1.0;
+    // Draw trails for both cars
+    drawWheelTrails(car1);
+    drawWheelTrails(car2);
+  }
+
 
   renderer.setScissorTest(true);
 
@@ -216,7 +260,9 @@ function animate() {
   updateHUD(car1, coordDisplay1, speedLabel1);
   updateHUD(car2, coordDisplay2, speedLabel2);
 
+  trailUpdateFrame++;
 }
+
 
 animate();
 

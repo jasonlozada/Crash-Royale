@@ -63,14 +63,64 @@ stoneTexture.wrapS = stoneTexture.wrapT = THREE.RepeatWrapping;
 stoneTexture.repeat.set(8,8);
 const desertBase = loader.load('arenaTextures/sandTexture.jpg');
 desertBase.wrapS = desertBase.wrapT = THREE.RepeatWrapping;
-desertBase.repeat.set(32,32);
+desertBase.repeat.set(64,64);
 const sandBrick = loader.load('arenaTextures/sandBrick1.jpg');
 sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
 sandBrick.repeat.set(32,8);
 
 
-// --- towerFloor (Floor of tower)
+const sandImage = new window.Image();
+sandImage.src = 'arenaTextures/sandTexture.jpg';
+window.sandImage = sandImage; 
+
+// --- Sand Trail Canvas
+const trailCanvasSize = 512;
+const trailCanvas = document.createElement('canvas');
+trailCanvas.width = trailCanvas.height = trailCanvasSize;
+const trailCtx = trailCanvas.getContext('2d');
+
+// Draw the sand texture as the background of the trail canvas
+
+function fillCanvasWithRepeatedImage(ctx, img, canvasSize, repeatCount = 16) {
+  // repeatCount: how many times the image repeats across the canvas
+  const tileSize = canvasSize / repeatCount;
+  for (let y = 0; y < repeatCount; ++y) {
+    for (let x = 0; x < repeatCount; ++x) {
+      ctx.drawImage(img, 0, 0, img.width, img.height,
+        x * tileSize, y * tileSize, tileSize, tileSize);
+    }
+  }
+}
+window.fillCanvasWithRepeatedImage = fillCanvasWithRepeatedImage;
+
+  if (window.sandImage.complete) {
+  fillCanvasWithRepeatedImage(trailCtx, window.sandImage, trailCanvasSize, 4); // 4 = repeat 4x4
+  } else {
+  window.sandImage.onload = () => {
+    fillCanvasWithRepeatedImage(trailCtx, window.sandImage, trailCanvasSize, 4);
+  };
+}
+
+// Fill with white (no trail)
+//trailCtx.fillStyle = '#fff';
+//trailCtx.fillRect(0, 0, trailCanvasSize, trailCanvasSize);
+
+const trailTexture = new THREE.CanvasTexture(trailCanvas);
+trailTexture.wrapS = trailTexture.wrapT = THREE.ClampToEdgeWrapping;
+trailTexture.needsUpdate = true;
+
 const radius = 35, segs = 64;
+
+// Helper for mapping world XZ to canvas UV
+function worldToUV(x, z) {
+  // towerFloor is centered at (0,0), radius = 35
+  const u = (x / (radius * 2)) + 0.5;
+  const v = (z / (radius * 2)) + 0.5;
+  return [u, v];
+}
+
+// --- towerFloor (Floor of tower)
+
 const towerFloorGeo = new THREE.CircleGeometry(radius, segs);
 const towerFloorMat = new THREE.MeshStandardMaterial({
   map:       sandTexture,
@@ -84,18 +134,28 @@ towerFloor.rotation.x = -Math.PI / 2;
 towerFloor.receiveShadow = true;
 scene.add(towerFloor);
 
+// Assign to towerFloor
+towerFloor.material.map = trailTexture;
+towerFloor.material.needsUpdate = true;
 
 // --- Dunes 
+const duneMat = new THREE.MeshStandardMaterial({
+  map: sandTexture,
+  color: 0xEED9A2,
+  side: THREE.DoubleSide,
+  roughness: 1.0,
+  metalness: 0.0
+});
+
 const duneHeight = 5, duneRadius = 5, duneSegs = 64;
 const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
 
 class dune extends THREE.Mesh{
-    dune = new THREE.Mesh(coneGeo, towerFloorMat);
     constructor(x, y, z) {
-        super(coneGeo, towerFloorMat);
+        super(coneGeo, duneMat);
         this.position.set(x, y, z);
         this.receiveShadow = true;
-    }
+      }
 }
 const dune1 = new dune(18, 2.5, 5);   
 const dune2 = new dune(-15, 2.5, -7); 
@@ -270,3 +330,11 @@ testBox.castShadow = true;
 testBox.receiveShadow = false;
 scene.add(testBox); 
 */
+
+window.worldToUV = worldToUV;
+window.trailCanvas = trailCanvas;
+window.trailCtx = trailCtx;
+window.trailTexture = trailTexture;
+window.radius = radius;
+window.trailCanvasSize = trailCanvasSize;
+
