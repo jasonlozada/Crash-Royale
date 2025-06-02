@@ -283,6 +283,34 @@ function checkCarsReady() {
 }
 
 
+// For Sand Trail
+function isWheelOnGround(wheel) {
+  //Adjust threshold as needed
+  return wheel.getWorldPosition(new THREE.Vector3()).y < 3 && wheel.getWorldPosition(new THREE.Vector3()).y > -3;
+}
+
+function drawWheelTrails(car) {
+  if (!car || !car.wheels) return;
+  
+  car.wheels.forEach(wheel => {
+    
+  if (!isWheelOnGround(wheel)) return;
+    const pos = wheel.getWorldPosition(new THREE.Vector3());
+    if (pos.x * pos.x + pos.z * pos.z <= window.radius * window.radius) {
+      const [u, v] = window.worldToUV(pos.x, pos.z);
+      const cx = Math.floor(u * window.trailCanvasSize);
+      const cy = Math.floor(v * window.trailCanvasSize);
+      window.trailCtx.beginPath();
+      window.trailCtx.arc(cx, cy, 5, 0, 2 * Math.PI);
+      window.trailCtx.fillStyle = 'rgba(120, 100, 60, 0.85)'; 
+      window.trailCtx.fill();
+    }
+  });
+  window.trailTexture.needsUpdate = true;
+}
+
+let trailUpdateFrame = 0;
+const TRAIL_UPDATE_INTERVAL = 2; // Update every 5 frames (adjust as needed)
 
 const stats = initStats();
 
@@ -292,13 +320,25 @@ function animate() {
   
   if (physicsWorld) physicsWorld.stepSimulation(1 / 60, 2);
 
-
   updateCar(car1, keys, 'w', 's', 'a', 'd', state1, camera1);
   updateCar(car2, keys, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', state2, camera2);
+
+
+
+  // Fade out old trails )
+  if (trailUpdateFrame % TRAIL_UPDATE_INTERVAL === 0) {
+    window.trailCtx.globalAlpha = 0.02;
+    fillCanvasWithRepeatedImage(window.trailCtx, window.sandImage, window.trailCanvasSize, 16);
+    window.trailCtx.globalAlpha = 1.0;
+    // Draw trails for both cars
+    drawWheelTrails(car1);
+    drawWheelTrails(car2);
+  }
 
     // === Falling Down ===
   handleFalling(car1, car2, { x: 10, y: 2, z: 0 });
   handleFalling(car2, car1, { x: -10, y: 2, z: 0 });
+
   renderer.setScissorTest(true);
 
   renderer.setViewport(0, 0, window.innerWidth / 2, window.innerHeight);
@@ -316,6 +356,9 @@ function animate() {
   updateHUD(car1, coordDisplay1, speedLabel1);
   updateHUD(car2, coordDisplay2, speedLabel2);
   stats.update();
+
+
+  trailUpdateFrame++;
 
   requestAnimationFrame(animate);
 }

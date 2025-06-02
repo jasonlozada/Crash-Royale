@@ -37,7 +37,7 @@ Object.assign(dir.shadow.camera, {
 });
 dir.shadow.camera.updateProjectionMatrix();
 scene.add(dir);
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
 // --- Textures
 const loader = new THREE.TextureLoader();
@@ -51,27 +51,106 @@ stoneTexture.repeat.set(8, 8);
 
 const desertBase = loader.load('arenaTextures/sandTexture.jpg');
 desertBase.wrapS = desertBase.wrapT = THREE.RepeatWrapping;
-desertBase.repeat.set(32, 32);
+
+desertBase.repeat.set(64,64);
 
 const sandBrick = loader.load('arenaTextures/sandBrick1.jpg');
 sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
 sandBrick.repeat.set(32, 8);
 
-// --- Floor
-const ARENA_RADIUS = 35, segs = 64;
-const floorGeo = new THREE.CircleGeometry(ARENA_RADIUS, segs);
-const floorMat = new THREE.MeshStandardMaterial({
+
+const sandImage = new window.Image();
+sandImage.src = 'arenaTextures/sandTexture.jpg';
+window.sandImage = sandImage; 
+
+// --- Sand Trail Canvas
+const trailCanvasSize = 512;
+const trailCanvas = document.createElement('canvas');
+trailCanvas.width = trailCanvas.height = trailCanvasSize;
+const trailCtx = trailCanvas.getContext('2d');
+
+// Draw the sand texture as the background of the trail canvas
+
+function fillCanvasWithRepeatedImage(ctx, img, canvasSize, repeatCount = 16) {
+  // repeatCount: how many times the image repeats across the canvas
+  const tileSize = canvasSize / repeatCount;
+  for (let y = 0; y < repeatCount; ++y) {
+    for (let x = 0; x < repeatCount; ++x) {
+      ctx.drawImage(img, 0, 0, img.width, img.height,
+        x * tileSize, y * tileSize, tileSize, tileSize);
+    }
+  }
+}
+window.fillCanvasWithRepeatedImage = fillCanvasWithRepeatedImage;
+
+  if (window.sandImage.complete) {
+  fillCanvasWithRepeatedImage(trailCtx, window.sandImage, trailCanvasSize, 4); // 4 = repeat 4x4
+  } else {
+  window.sandImage.onload = () => {
+    fillCanvasWithRepeatedImage(trailCtx, window.sandImage, trailCanvasSize, 4);
+  };
+}
+
+// Fill with white (no trail)
+//trailCtx.fillStyle = '#fff';
+//trailCtx.fillRect(0, 0, trailCanvasSize, trailCanvasSize);
+
+const trailTexture = new THREE.CanvasTexture(trailCanvas);
+trailTexture.wrapS = trailTexture.wrapT = THREE.ClampToEdgeWrapping;
+trailTexture.needsUpdate = true;
+
+const radius = 35, segs = 64;
+
+// Helper for mapping world XZ to canvas UV
+function worldToUV(x, z) {
+  // towerFloor is centered at (0,0), radius = 35
+  const u = (x / (radius * 2)) + 0.5;
+  const v = (z / (radius * 2)) + 0.5;
+  return [u, v];
+}
+
+// --- towerFloor (Floor of tower)
+
+const towerFloorGeo = new THREE.CircleGeometry(radius, segs);
+const towerFloorMat = new THREE.MeshStandardMaterial({
+  map:       sandTexture,
+  color:     0xEED9A2,
+  side:      THREE.DoubleSide,
+  roughness: 1.0,
+  metalness: 0.0
+});
+const towerFloor = new THREE.Mesh(towerFloorGeo, towerFloorMat);
+towerFloor.rotation.x = -Math.PI / 2;
+towerFloor.receiveShadow = true;
+scene.add(towerFloor);
+
+// Assign to towerFloor
+towerFloor.material.map = trailTexture;
+towerFloor.material.needsUpdate = true;
+
+// --- Dunes 
+const duneMat = new THREE.MeshStandardMaterial({
   map: sandTexture,
   color: 0xEED9A2,
   side: THREE.DoubleSide,
   roughness: 1.0,
   metalness: 0.0
 });
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
 
+const duneHeight = 5, duneRadius = 5, duneSegs = 64;
+const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
+
+class dune extends THREE.Mesh{
+    constructor(x, y, z) {
+        super(coneGeo, duneMat);
+        this.position.set(x, y, z);
+        this.receiveShadow = true;
+      }
+}
+const dune1 = new dune(18, 2.5, 5);   
+const dune2 = new dune(-15, 2.5, -7); 
+scene.add(dune1);
+scene.add(dune2);
 
 // === Ammo.js Physics Initialization ===
 let physicsWorld;
@@ -115,64 +194,78 @@ if (typeof window.Ammo === 'function') {
   console.error('Ammo not loaded. Make sure ammo.js is available globally.');
 }
 
-// --- Dunes
-const coneGeo = new THREE.ConeGeometry(5, 5, segs);
-class Dune extends THREE.Mesh {
-  constructor(x, y, z) {
-    super(coneGeo, floorMat);
-    this.position.set(x, y, z);
-    this.receiveShadow = true;
-  }
-}
-scene.add(new Dune(18, 2.6, 5));
-scene.add(new Dune(-15, 2.6, -7));
 
-// --- Side Wall
-const floorSideMat = new THREE.MeshStandardMaterial({
-  map: sandBrick,
-  color: 0xEED9A2,
-  side: THREE.DoubleSide,
+
+
+// --- towerSide (side of tower)
+const towerSideMat = new THREE.MeshStandardMaterial({
+  map:       sandBrick,
+  color:     0xEED9A2,
+  side:      THREE.DoubleSide,
   roughness: 1.0,
   metalness: 0.0
 });
-const floorSide = new THREE.Mesh(
-  new THREE.CylinderGeometry(ARENA_RADIUS + 1, ARENA_RADIUS * 1.25, 120, segs),
-  floorSideMat
-);
-floorSide.receiveShadow = true;
-floorSide.position.y = -60.01;
-scene.add(floorSide);
+const topRadius = 1 + radius;
+const bottomRadius = topRadius; // Make the cylinder straight
+const towerSideGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 80, segs); // height = 80
+const towerSide = new THREE.Mesh(towerSideGeo, towerSideMat);
+towerSide.receiveShadow = true;
+towerSide.translateY(-40.01); 
+scene.add(towerSide);
 
-// --- Outer Ground
-const base = new THREE.Mesh(
-  new THREE.PlaneGeometry(5000, 5000, 64, 64),
-  new THREE.MeshStandardMaterial({
-    map: desertBase,
-    color: 0xEED9A2,
-    side: THREE.DoubleSide,
-    roughness: 1.0,
-    metalness: 0.0
-  })
-);
-base.rotation.x = -Math.PI / 2;
-base.position.y = -120;
+// === Physics World Setup ===
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
+// Create a cylinder to match the tower (including towerFloor)
+const groundBody = new CANNON.Body({
+  mass: 0, // static
+  shape: new CANNON.Cylinder(topRadius, topRadius, 80, segs), // match tower
+  position: new CANNON.Vec3(0, -40, 0) // center matches tower mesh
+});
+
+world.addBody(groundBody);
+
+
+// --- Base (Floor outside tower)
+const width = 5000, height = 5000;
+const baseGeo = new THREE.PlaneGeometry(width, height, 64, 64);
+
+const baseMat = new THREE.MeshStandardMaterial({
+  map:       desertBase,
+  color:     0xEED9A2,
+  side:      THREE.DoubleSide,
+  roughness: 1.0,
+  metalness: 0.0
+});
+const base = new THREE.Mesh(baseGeo, baseMat);
+base.rotateX(3* Math.PI/2);
+base.translateZ(-80); 
 scene.add(base);
 
 // --- Cactus Models
 const gltfLoader = new GLTFLoader();
-gltfLoader.load('arenaProps/Cactus.glb', (gltf) => {
-  const proto = gltf.scene;
-  for (let i = 0; i < 40; i++) {
-    const cactus = proto.clone(true);
-    cactus.position.set((Math.random() * 2 - 1) * 600, -120, (Math.random() * 2 - 1) * 600);
-    cactus.rotation.y = Math.random() * Math.PI * 2;
-    const scale = 0.5 + Math.random() * 1.5;
-    cactus.scale.set(scale, scale, scale);
-    cactus.traverse(child => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
+
+
+gltfLoader.load(
+'arenaProps/Cactus.glb',
+(gltf) => { 
+const proto = gltf.scene;
+const numCacti = 40;
+const spread = 600;
+for (let i = 0; i < numCacti; i++) {
+  const cactus = proto.clone(true);
+  const x = (Math.random() * 2 - 1) * spread;
+  const z = (Math.random() * 2 - 1) * spread;
+  cactus.position.set(x, -80, z); 
+  cactus.rotation.y = Math.random() * Math.PI * 2;
+  const s = 0.5 + Math.random() * 1.5;
+  cactus.scale.set(s, s, s);
+
+   cactus.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+
     });
     scene.add(cactus);
   }
@@ -192,18 +285,50 @@ for (let i = 0; i < 100; i++) {
   const ang = Math.random() * Math.PI * 2;
   const dist = 830 + Math.random() * 20;
   const height = 70 + Math.random() * 70;
-  tmp.position.set(Math.cos(ang) * dist, -120 + height / 2, Math.sin(ang) * dist);
-  tmp.scale.set(height * 0.6, height, height * 0.6);
-  tmp.rotation.y = Math.random() * Math.PI;
+
+  const baseY  = -80;             // updated to match new base level
+  tmp.position.set(
+    Math.cos(ang) * dist,
+    baseY + height * 0.5,           // raise so half the cone sits below the apex
+    Math.sin(ang) * dist
+  );
+  // scale cone so its height is `height`
+  // original geo is height=1, radius=1, so scale Y by `height`
+  tmp.scale.set(height * 0.6, height, height * 0.6); 
+  tmp.rotation.y = Math.random() * Math.PI;  // random rotation
+
   tmp.updateMatrix();
   mountains.setMatrixAt(i, tmp.matrix);
 }
 scene.add(mountains);
 
-// --- Shadow Configs
-floor.receiveShadow = true;
-floor.castShadow = false;
-floorSide.castShadow = true;
+
+
+// --- adding shadows to objects
+towerFloor.receiveShadow = true;
+towerFloor.castShadow = false;
+
+dune1.receiveShadow = false;
+dune1.castShadow = true;
+dune2.receiveShadow = false;
+dune2.castShadow = true;
+
+towerSide.receiveShadow = false;
+towerSide.castShadow = true;
+
+
 base.receiveShadow = true;
 mountains.castShadow = false;
-mountains.receiveShadow = false;
+
+// Global Variable (DO NOT CHANGE)
+window.scene = scene;
+window.world = world; 
+
+window.worldToUV = worldToUV;
+window.trailCanvas = trailCanvas;
+window.trailCtx = trailCtx;
+window.trailTexture = trailTexture;
+window.radius = radius;
+window.trailCanvasSize = trailCanvasSize;
+
+
