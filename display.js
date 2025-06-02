@@ -1,4 +1,6 @@
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
 import * as THREE from 'three';
 // import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 // import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
@@ -102,6 +104,7 @@ function createAudioButton() {
   const music = new Audio('/assets/audio/title-theme.mp3');
   music.loop = true;
   music.volume = 0.5;
+  titleMusic = music;
 
   let isPlaying = false;
 
@@ -235,6 +238,7 @@ function fadeOutAndStart(callback) {
   let opacity = 1;
   const audioBtn = document.getElementById('audio-btn');
 
+
   function fade() {
     opacity -= 0.03;
 
@@ -249,7 +253,8 @@ function fadeOutAndStart(callback) {
       const scene = window.scene;
       if (titleSprite) scene.remove(titleSprite);
       if (promptSprite) scene.remove(promptSprite);
-      if (audioBtn) audioBtn.style.display = 'none'; // hide after fade
+      if (audioBtn) audioBtn.style.display = 'none';
+        // hide after fade
       callback(); // Start the game
     } else {
       requestAnimationFrame(fade);
@@ -322,4 +327,48 @@ export function hideLoadingScreen() {
     div.style.opacity = '0';
     setTimeout(() => div.remove(), 500);
   }
+}
+
+export let crownModel = null;
+
+const loader = new GLTFLoader();
+loader.load('/models/crown.glb', (gltf) => {
+  crownModel = gltf.scene;
+  crownModel.scale.set(0.4, 0.4, 0.4);
+});
+
+let crownInstance = null;
+export function updateCrownPosition(car1, car2, scene) {
+ if (!crownModel || !car1 || !car2) return;
+
+  const car1Score = car1.userData.score || 0;
+  const car2Score = car2.userData.score || 0;
+
+  // === Remove crown if tied ===
+  if (car1Score === car2Score) {
+    if (crownInstance && scene.children.includes(crownInstance)) {
+      scene.remove(crownInstance);
+      crownInstance = null;
+    }
+    return;
+  }
+
+  const leader = car1Score > car2Score ? car1 : car2;
+
+  // === Create crown instance if needed ===
+  if (!crownInstance) {
+    crownInstance = crownModel.clone();
+    crownInstance.scale.set(2, 2, 2);
+    crownInstance.name = 'crown';
+    scene.add(crownInstance);
+  }
+
+  // === Position above score label ===
+  const offsetY = 5;
+  crownInstance.position.set(
+    leader.position.x,
+    leader.position.y + offsetY,
+    leader.position.z
+  );
+  crownInstance.quaternion.copy(leader.quaternion);
 }

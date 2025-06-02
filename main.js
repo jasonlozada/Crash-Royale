@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { loadCarModel, setupCarPhysics, handleFalling, wrapWheelInPivot, createTextSprite} from './car.js';
 import { createCoordDisplay, createSpeedLabel, 
   updateHUD, initStats, createTitleScreen, 
-  showLoadingScreen, updateLoadingProgress, hideLoadingScreen
+  showLoadingScreen, updateLoadingProgress, hideLoadingScreen, crownModel, updateCrownPosition
 } from './display.js';
 
 // === Title Camera (Centered for Title Screen Only) ===
@@ -328,6 +328,7 @@ function animate() {
   updateCar(car1, keys, 'w', 's', 'a', 'd', state1, camera1);
   updateCar(car2, keys, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', state2, camera2);
 
+  updateCrownPosition(car1, car2, scene);
 
 
   // Fade out old trails )
