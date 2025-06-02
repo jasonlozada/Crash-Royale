@@ -191,9 +191,11 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   // === Camera Follow ===
 
   // === Dynamic camera offset (zoomed out if reversing) ===
-  const baseOffset = reversing
-    ? new THREE.Vector3(0, 6, 8)     // Front + higher + farther when reversing
-    : new THREE.Vector3(0, 5, -10);  // Behind normally
+  const pressingBackward = keys[bw]; // where `bw` is 's' or 'ArrowDown'
+
+  const baseOffset = pressingBackward
+    ? new THREE.Vector3(0, 6, 8)  // front cam when pressing reverse
+    : new THREE.Vector3(0, 5, -10); // rear cam normally
 
   // Smooth rotation-based offset
   const targetOffset = baseOffset.applyQuaternion(car.quaternion);
@@ -205,7 +207,7 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   camera.position.lerp(desiredCamPos, 0.1);
 
   // === Tilt Camera Slightly Down When Reversing ===
-  const lookOffset = reversing ? new THREE.Vector3(0, -1, 0) : new THREE.Vector3(0, 0, 0);
+  const lookOffset = pressingBackward ? new THREE.Vector3(0, -1, 0) : new THREE.Vector3(0, 0, 0);
   const targetLookAt = car.position.clone().add(lookOffset);
   camera.lookAt(targetLookAt);
 }
