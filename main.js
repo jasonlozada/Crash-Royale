@@ -1,8 +1,21 @@
 import * as THREE from 'three';
-import { loadCarModel, setupCarPhysics, wrapWheelInPivot, handleFalling} from './car.js';
-import { createCoordDisplay, createSpeedLabel, createScoreLabel, updateHUD, initStats } from './display.js';
+import { loadCarModel, setupCarPhysics, handleFalling, wrapWheelInPivot, createTextSprite} from './car.js';
+import { createCoordDisplay, createSpeedLabel, 
+  updateHUD, initStats, createTitleScreen, 
+  showLoadingScreen, updateLoadingProgress, hideLoadingScreen
+} from './display.js';
 
+// === Title Camera (Centered for Title Screen Only) ===
+// === Title Camera: Overview of Arena ===
+const titleCamera = new THREE.PerspectiveCamera(
+  60,                                 // wider field of view
+  window.innerWidth / window.innerHeight,
+  0.1,
+  2000
+);
 
+// Position it high and back to view the arena
+titleCamera.position.set(0, 50, 50);  // Adjust Y and Z as needed
 
 // === Renderer Setup ===
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -23,15 +36,37 @@ const keys = {};
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
+let gameStarted = false;
+
+createTitleScreen(() => {
+  beginGameSetup();
+});
+
+
+let angle = 0;
+function animateTitleScreen() {
+  if (!gameStarted) {
+    angle += 0.002; // control rotation speed
+    const radius = 100;
+    const x = radius * Math.sin(angle);
+    const z = radius * Math.cos(angle);
+    titleCamera.position.set(x, 60, z);
+    titleCamera.lookAt(0, 0, 0);
+
+    requestAnimationFrame(animateTitleScreen);
+    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+    renderer.setScissorTest(false);
+    renderer.render(window.scene, titleCamera);
+  }
+}
+
+animateTitleScreen();
 // === HUD Setup ===
 const coordDisplay1 = createCoordDisplay(10);
 const coordDisplay2 = createCoordDisplay(window.innerWidth / 2 + 10);
 
 const speedLabel1 = createSpeedLabel(window.innerWidth / 2 + 10);
 const speedLabel2 = createSpeedLabel(10);
-
-const scoreLabel1 = createScoreLabel(10);
-const scoreLabel2 = createScoreLabel(window.innerWidth / 2 + 10);
 
 // === State Objects for Car Controls ===
 const state1 = { speed: 0, dir: 0, steering: 0, accelTimer: 0,  camOffset: new THREE.Vector3(0, 5, -10)};
@@ -42,13 +77,6 @@ let car1 = null;
 let car2 = null;
 let car1Loaded = false;
 let car2Loaded = false;
-
-function checkCarsReady() {
-  if (car1Loaded && car2Loaded) {
-    animate();
-  }
-}
-
 
 function updateCar(car, keys, fw, bw, left, right, state, camera) {
   if (!car || !car.physicsBody) return;
@@ -153,7 +181,7 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   const steerAngle = state.steeringSmooth * maxSteerAngle;
 
   if (car.frontLeftPivot)
-    car.frontLeftPivot.rotation.y = (steerAngle - car.frontLeftPivot.rotation.y) * steerLerp;
+    car.frontLeftPivot.rotation.y += (steerAngle - car.frontLeftPivot.rotation.y) * steerLerp;
   if (car.frontRightPivot)
     car.frontRightPivot.rotation.y += (steerAngle - car.frontRightPivot.rotation.y) * steerLerp;
 
@@ -179,25 +207,25 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   camera.lookAt(targetLookAt);
 }
 
-// === Wait for Ammo and scene setup from arena.js
-async function waitForArenaInit() {
-  while (!window.Ammo || !window.physicsWorld || !window.scene) {
-    await new Promise(res => setTimeout(res, 30));
-  }
-}
+const loadProgress = { car1: 0, car2: 0 };
 
-waitForArenaInit().then(() => {
-  physicsWorld = window.physicsWorld;
-  const scene = window.scene;
 
-  loadCarModel('models/rover_blue.glb', scene, (model) => {
+function beginGameSetup() {
+  showLoadingScreen(); // Show loading screen with bar
+
+  waitForArenaInit().then(() => {
+    physicsWorld = window.physicsWorld;
+    const scene = window.scene;
+
+    loadCarModel('models/rover_blue.glb', scene, (model) => {
       car1 = model;
-      car1.name = "Car 1";
-      car1.wheelRotationSpeed = 0;
-      car1.score = 0;
-      car1.hasFallen = false;
-
       setupCarPhysics(car1, physicsWorld, { x: 10, y: 0.5, z: 0 });
+
+      const label = createTextSprite('0');
+      label.position.set(0, 1, 0);
+      car1.add(label);
+      car1.userData.scoreLabel = label;
+
       car1Loaded = true;
       checkCarsReady();
 
@@ -205,31 +233,63 @@ waitForArenaInit().then(() => {
       car1.frontRightPivot = wrapWheelInPivot(car1.frontRightWheel);
       car1.attach(car1.frontLeftPivot);
       car1.attach(car1.frontRightPivot);
+    }),
+
+    loadCarModel('models/rover_red.glb', scene, (model) => {
+      car2 = model;
+      setupCarPhysics(car2, physicsWorld, { x: 0, y: 0.5, z: 0 });
+
+      const label = createTextSprite('0');
+      label.position.set(0, 1, 0);
+      car2.add(label);
+      car2.userData.scoreLabel = label;
+
+      car2Loaded = true;
+      checkCarsReady();
+
+      car2.frontLeftPivot = wrapWheelInPivot(car2.frontLeftWheel);
+      car2.frontRightPivot = wrapWheelInPivot(car2.frontRightWheel);
+      car2.attach(car2.frontLeftPivot);
+      car2.attach(car2.frontRightPivot);
+    }, 
+      (percent) => {
+      loadProgress.car1 = percent;
+      loadProgress.car2 = percent;
+
+      updateLoadingProgress((loadProgress.car1 + loadProgress.car2) / 2);
+
+    
+    });
   });
+}
 
-  loadCarModel('models/rover_red.glb', scene, (model) => {
-    car2 = model;
-    car2.name = "Car 2";
-    car2.wheelRotationSpeed = 0;
-    car2.score = 0;
-    car2.hasFallen = false;
+// === Step 3: Wait for Ammo and Scene to Load ===
+async function waitForArenaInit() {
+  while (!window.Ammo || !window.physicsWorld || !window.scene) {
+    await new Promise(res => setTimeout(res, 30));
+  }
+}
 
-    setupCarPhysics(car2, physicsWorld, { x: 0, y: 0.5, z: 0 });
-    car2Loaded = true;
-    checkCarsReady();
+// === Step 4: Check if Both Cars Are Ready ===
+function checkCarsReady() {
+  if (car1Loaded && car2Loaded) {
+    updateLoadingProgress(100); // force full progress bar
+    setTimeout(() => {
+      hideLoadingScreen();
+      gameStarted = true;
+      animate(); // start game loop
+    }, 500);
+  }
+}
 
-    car2.frontLeftPivot = wrapWheelInPivot(car2.frontLeftWheel);
-    car2.frontRightPivot = wrapWheelInPivot(car2.frontRightWheel);
-    car2.attach(car2.frontLeftPivot);
-    car2.attach(car2.frontRightPivot);
-  });
-});
+
 
 const stats = initStats();
 
 function animate() {
-  stats.begin();
+  if (!gameStarted) return;
 
+  
   if (physicsWorld) physicsWorld.stepSimulation(1 / 60, 2);
 
 
@@ -253,9 +313,10 @@ function animate() {
 
   renderer.setScissorTest(false);
 
-  updateHUD(car1, coordDisplay1, speedLabel1, scoreLabel1);
-  updateHUD(car2, coordDisplay2, speedLabel2, scoreLabel2);
-  stats.end();
+  updateHUD(car1, coordDisplay1, speedLabel1);
+  updateHUD(car2, coordDisplay2, speedLabel2);
+  stats.update();
+
   requestAnimationFrame(animate);
 }
 
