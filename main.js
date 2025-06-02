@@ -1,18 +1,21 @@
 import * as THREE from 'three';
-import { loadCarModel, setupCarPhysics, handleFalling, createTextSprite, updateCarScoreLabel} from './car.js';
+import { loadCarModel, setupCarPhysics, handleFalling, wrapWheelInPivot, createTextSprite} from './car.js';
 import { createCoordDisplay, createSpeedLabel, 
   updateHUD, initStats, createTitleScreen, 
   showLoadingScreen, updateLoadingProgress, hideLoadingScreen
 } from './display.js';
 
+// === Title Camera (Centered for Title Screen Only) ===
+// === Title Camera: Overview of Arena ===
+const titleCamera = new THREE.PerspectiveCamera(
+  60,                                 // wider field of view
+  window.innerWidth / window.innerHeight,
+  0.1,
+  2000
+);
 
-
-let gameStarted = false;
-
-createTitleScreen(() => {
-  beginGameSetup();
-  // waitForArenaInit(); // load models, physics, etc.
-});
+// Position it high and back to view the arena
+titleCamera.position.set(0, 50, 50);  // Adjust Y and Z as needed
 
 // === Renderer Setup ===
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -33,6 +36,31 @@ const keys = {};
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
+let gameStarted = false;
+
+createTitleScreen(() => {
+  beginGameSetup();
+});
+
+
+let angle = 0;
+function animateTitleScreen() {
+  if (!gameStarted) {
+    angle += 0.002; // control rotation speed
+    const radius = 100;
+    const x = radius * Math.sin(angle);
+    const z = radius * Math.cos(angle);
+    titleCamera.position.set(x, 60, z);
+    titleCamera.lookAt(0, 0, 0);
+
+    requestAnimationFrame(animateTitleScreen);
+    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+    renderer.setScissorTest(false);
+    renderer.render(window.scene, titleCamera);
+  }
+}
+
+animateTitleScreen();
 // === HUD Setup ===
 const coordDisplay1 = createCoordDisplay(10);
 const coordDisplay2 = createCoordDisplay(window.innerWidth / 2 + 10);
@@ -153,7 +181,7 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   const steerAngle = state.steeringSmooth * maxSteerAngle;
 
   if (car.frontLeftPivot)
-    car.frontLeftPivot.rotation.y = (steerAngle - car.frontLeftPivot.rotation.y) * steerLerp;
+    car.frontLeftPivot.rotation.y += (steerAngle - car.frontLeftPivot.rotation.y) * steerLerp;
   if (car.frontRightPivot)
     car.frontRightPivot.rotation.y += (steerAngle - car.frontRightPivot.rotation.y) * steerLerp;
 
@@ -200,6 +228,11 @@ function beginGameSetup() {
 
       car1Loaded = true;
       checkCarsReady();
+
+      car1.frontLeftPivot = wrapWheelInPivot(car1.frontLeftWheel);
+      car1.frontRightPivot = wrapWheelInPivot(car1.frontRightWheel);
+      car1.attach(car1.frontLeftPivot);
+      car1.attach(car1.frontRightPivot);
     }),
 
     loadCarModel('models/rover_red.glb', scene, (model) => {
@@ -213,11 +246,19 @@ function beginGameSetup() {
 
       car2Loaded = true;
       checkCarsReady();
+
+      car2.frontLeftPivot = wrapWheelInPivot(car2.frontLeftWheel);
+      car2.frontRightPivot = wrapWheelInPivot(car2.frontRightWheel);
+      car2.attach(car2.frontLeftPivot);
+      car2.attach(car2.frontRightPivot);
     }, 
       (percent) => {
       loadProgress.car1 = percent;
       loadProgress.car2 = percent;
+
       updateLoadingProgress((loadProgress.car1 + loadProgress.car2) / 2);
+
+    
     });
   });
 }

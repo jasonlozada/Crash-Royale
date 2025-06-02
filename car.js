@@ -102,6 +102,26 @@ export function setupCarPhysics(car, physicsWorld, position) {
 
 }
 
+export function wrapWheelInPivot(wheelMesh) {
+  if (!wheelMesh) {
+    console.warn('wrapWheelInPivot called with undefined wheelMesh');
+    return null;
+  }
+
+  const pivot = new THREE.Group();
+  pivot.position.copy(wheelMesh.getWorldPosition(new THREE.Vector3()));
+
+  if (typeof window.scene !== 'undefined') {
+    window.scene.attach(pivot);
+  } else {
+    console.error('No scene found in global scope');
+  }
+
+  wheelMesh.position.set(0, 0, 0);
+  pivot.add(wheelMesh);
+  return pivot;
+}
+
 export function handleFalling(car, opponent, resetPosition = { x: 0, y: 2, z: 0 }) {
   const fallThreshold = -10;
 
@@ -109,7 +129,7 @@ export function handleFalling(car, opponent, resetPosition = { x: 0, y: 2, z: 0 
     // Mark car as fallen and give opponent a point
     car.hasFallen = true;
     opponent.userData.score = (opponent.userData.score || 0) + 1;
-    updateCarScoreLabel(opponent, opponent.userData.score);
+    updateCarScoreLabel(opponent, opponent.userData.score)
     if (typeof window.updateScoreUI === 'function') {
       window.updateScoreUI();
     }

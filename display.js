@@ -1,4 +1,7 @@
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import * as THREE from 'three';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 let statsInstance = null;
 export function initStats() {
@@ -73,45 +76,133 @@ export function updateHUD(car, coordDisplay, speedLabel) {
 
 }
 
+document.fonts.load('100px "Cinzel"').then(() => {
+  ctx.font = `${fontSize}px Cinzel`;
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  texture.needsUpdate = true; // update after drawing
+});
+
+let titleSprite, promptSprite;
+
 export function createTitleScreen(onStartCallback) {
-  const titleDiv = document.createElement('div');
-  titleDiv.id = 'title-screen';
-  titleDiv.style.position = 'fixed';
-  titleDiv.style.top = '0';
-  titleDiv.style.left = '0';
-  titleDiv.style.width = '100vw';
-  titleDiv.style.height = '100vh';
-  titleDiv.style.background = 'black';
-  titleDiv.style.color = 'white';
-  titleDiv.style.display = 'flex';
-  titleDiv.style.flexDirection = 'column';
-  titleDiv.style.justifyContent = 'center';
-  titleDiv.style.alignItems = 'center';
-  titleDiv.style.zIndex = '1000';
+  const scene = window.scene;
 
-  const title = document.createElement('h1');
-  title.innerText = 'Crash Royale';
-  title.style.fontSize = '48px';
-  title.style.marginBottom = '20px';
-  titleDiv.appendChild(title);
+  const aspect = window.innerWidth / window.innerHeight;
+  const scaleMultiplier = Math.min(aspect * 1.2, 2.5); // cap it for consistency
 
-  const button = document.createElement('button');
-  button.innerText = 'Start Game';
-  button.style.padding = '12px 24px';
-  button.style.fontSize = '20px';
-  button.style.cursor = 'pointer';
+  // === Title Text ===
+  titleSprite = createTextSprite('Crash Royale', {
+    fontSize: 90,
+    color: '#FFD700',
+    scale: [45 * scaleMultiplier, 15 * scaleMultiplier, 1],
+    fontFamily: 'Cinzel',
+    shadow: true,
+    stroke: true
+  });
+  titleSprite.position.set(0, 40, 0);
+  scene.add(titleSprite);
 
-  // Optional: Add hover/focus styles
-  button.onmouseenter = () => button.style.backgroundColor = '#333';
-  button.onmouseleave = () => button.style.backgroundColor = '';
+  // === Prompt Text ===
+  promptSprite = createTextSprite('Press Space to Start', {
+    fontSize: 50,
+    color: '#FFFFFF',
+    scale: [25 * scaleMultiplier, 5 * scaleMultiplier, 1],
+    fontFamily: 'Cinzel',
+    shadow: true
+  });
+  promptSprite.position.set(0, 25, 0);
+  scene.add(promptSprite);
 
-  button.addEventListener('click', () => {
-    titleDiv.style.display = 'none';
-    onStartCallback(); // Start the game
+  window.addEventListener('keydown', function startGameOnce(e) {
+    if (e.code === 'Space') {
+      window.removeEventListener('keydown', startGameOnce);
+      fadeOutAndStart(onStartCallback);
+    }
+  });
+}
+
+export function createTextSprite(text, options = {}) {
+  const {
+    fontSize = 64,
+    color = 'white',
+    scale = [20, 10, 1],
+    fontFamily = 'sans-serif',
+    shadow = false,
+    stroke = false
+  } = options;
+
+  // === Auto-calculate canvas size ===
+  const padding = fontSize * 0.5;
+  const estimatedWidth = fontSize * text.length * 0.7 + padding;
+  const estimatedHeight = fontSize * 1.8 + padding;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.ceil(estimatedWidth);
+  canvas.height = Math.ceil(estimatedHeight);
+
+  const ctx = canvas.getContext('2d');
+  const font = `${fontSize}px "${fontFamily}"`;
+
+  // Load font before drawing
+  document.fonts.load(font).then(() => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    if (shadow) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 4;
+      ctx.shadowBlur = 8;
+    }
+
+    if (stroke) {
+      ctx.strokeStyle = '#5C3B1E';
+      ctx.lineWidth = 6;
+      ctx.strokeText(text, centerX, centerY);
+    }
+
+    ctx.fillStyle = color;
+    ctx.fillText(text, centerX, centerY);
+
+    texture.needsUpdate = true;
   });
 
-  titleDiv.appendChild(button);
-  document.body.appendChild(titleDiv);
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    opacity: 1
+  });
+
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(...scale);
+  return sprite;
+}
+
+function fadeOutAndStart(callback) {
+  let opacity = 1;
+
+  function fade() {
+    opacity -= 0.03;
+    if (opacity <= 0) {
+      const scene = window.scene;
+      scene.remove(titleSprite);
+      scene.remove(promptSprite);
+      callback(); // start game setup
+      return;
+    }
+    titleSprite.material.opacity = opacity;
+    promptSprite.material.opacity = opacity;
+    requestAnimationFrame(fade);
+  }
+
+  fade();
 }
 
 export function showLoadingScreen() {
@@ -132,7 +223,7 @@ export function showLoadingScreen() {
     font-size: 20px;
     z-index: 2000;
   `;
-  loadingDiv.innerHTML = `<p>Loading...</p>`;
+  loadingDiv.innerHTML = `<h2>LOADING...</h2>`;
 
   // Progress bar container
   const barContainer = document.createElement('div');
