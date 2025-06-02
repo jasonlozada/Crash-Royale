@@ -231,30 +231,29 @@ export function createTextSprite(text, options = {}) {
   return sprite;
 }
 
-
-
 function fadeOutAndStart(callback) {
   let opacity = 1;
+  const audioBtn = document.getElementById('audio-btn');
 
   function fade() {
     opacity -= 0.03;
+
+    if (titleSprite) titleSprite.material.opacity = opacity;
+    if (promptSprite) promptSprite.material.opacity = opacity;
+
+    if (audioBtn) {
+      audioBtn.style.opacity = opacity;
+    }
+
     if (opacity <= 0) {
       const scene = window.scene;
-
-      // Stop music
-      if (titleMusic) {
-        titleMusic.pause();
-        titleMusic.currentTime = 0;
-      }
-
-      scene.remove(titleSprite);
-      scene.remove(promptSprite);
-      callback(); // start game setup
-      return;
+      if (titleSprite) scene.remove(titleSprite);
+      if (promptSprite) scene.remove(promptSprite);
+      if (audioBtn) audioBtn.style.display = 'none'; // hide after fade
+      callback(); // Start the game
+    } else {
+      requestAnimationFrame(fade);
     }
-    titleSprite.material.opacity = opacity;
-    promptSprite.material.opacity = opacity;
-    requestAnimationFrame(fade);
   }
 
   fade();
