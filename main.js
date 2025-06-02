@@ -44,6 +44,8 @@ createTitleScreen(() => {
 
 
 let angle = 0;
+
+const stats1 = initStats();
 function animateTitleScreen() {
   if (!gameStarted) {
     angle += 0.002; // control rotation speed
@@ -54,6 +56,7 @@ function animateTitleScreen() {
     titleCamera.lookAt(0, 0, 0);
 
     requestAnimationFrame(animateTitleScreen);
+    stats1.update();
     renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
     renderer.setScissorTest(false);
     renderer.render(window.scene, titleCamera);

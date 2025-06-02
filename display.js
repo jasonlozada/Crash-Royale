@@ -1,7 +1,7 @@
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import * as THREE from 'three';
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+// import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+// import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 let statsInstance = null;
 export function initStats() {
@@ -76,12 +76,7 @@ export function updateHUD(car, coordDisplay, speedLabel) {
 
 }
 
-document.fonts.load('100px "Cinzel"').then(() => {
-  ctx.font = `${fontSize}px Cinzel`;
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
-  texture.needsUpdate = true; // update after drawing
-});
 
 let titleSprite, promptSprite;
 
@@ -144,6 +139,12 @@ export function createTextSprite(text, options = {}) {
   const ctx = canvas.getContext('2d');
   const font = `${fontSize}px "${fontFamily}"`;
 
+  document.fonts.load('100px "Cinzel"').then(() => {
+  ctx.font = `${fontSize}px Cinzel`;
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  texture.needsUpdate = true; // update after drawing
+});
   // Load font before drawing
   document.fonts.load(font).then(() => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);

@@ -213,18 +213,6 @@ towerSide.receiveShadow = true;
 towerSide.translateY(-40.01); 
 scene.add(towerSide);
 
-// === Physics World Setup ===
-const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
-// Create a cylinder to match the tower (including towerFloor)
-const groundBody = new CANNON.Body({
-  mass: 0, // static
-  shape: new CANNON.Cylinder(topRadius, topRadius, 80, segs), // match tower
-  position: new CANNON.Vec3(0, -40, 0) // center matches tower mesh
-});
-
-world.addBody(groundBody);
-
-
 // --- Base (Floor outside tower)
 const width = 5000, height = 5000;
 const baseGeo = new THREE.PlaneGeometry(width, height, 64, 64);
@@ -322,7 +310,6 @@ mountains.castShadow = false;
 
 // Global Variable (DO NOT CHANGE)
 window.scene = scene;
-window.world = world; 
 
 window.worldToUV = worldToUV;
 window.trailCanvas = trailCanvas;
