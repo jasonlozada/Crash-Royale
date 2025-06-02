@@ -76,15 +76,59 @@ export function updateHUD(car, coordDisplay, speedLabel) {
 
 }
 
+let titleSprite, titleMusic;
+export let promptSprite = null;
+export let promptOriginalScale = null;
 
+function createAudioButton() {
+  const button = document.createElement('button');
+  button.id = 'audio-btn';
+  button.textContent = '🔊'; // Only emoji shown
+  Object.assign(button.style, {
+    position: 'fixed',
+    bottom: '20px',
+    left: '20px',
+    fontSize: '24px',
+    padding: '0',
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: 'white',
+    cursor: 'pointer',
+    zIndex: '1000'
+  });
 
-let titleSprite, promptSprite;
+  document.body.appendChild(button);
+
+  const music = new Audio('/assets/audio/title-theme.mp3');
+  music.loop = true;
+  music.volume = 0.5;
+
+  let isPlaying = false;
+
+  button.addEventListener('click', () => {
+    if (!isPlaying) {
+      music.play();
+      button.textContent = '🔇';
+      isPlaying = true;
+    } else {
+      music.pause();
+      music.currentTime = 0;
+      button.textContent = '🔊';
+      isPlaying = false;
+    }
+  });
+
+  return { button, music };
+}
 
 export function createTitleScreen(onStartCallback) {
   const scene = window.scene;
 
   const aspect = window.innerWidth / window.innerHeight;
   const scaleMultiplier = Math.min(aspect * 1.2, 2.5); // cap it for consistency
+
+  const audio = createAudioButton();
+  titleMusic = audio.music;
 
   // === Title Text ===
   titleSprite = createTextSprite('Crash Royale', {
@@ -98,9 +142,9 @@ export function createTitleScreen(onStartCallback) {
   titleSprite.position.set(0, 40, 0);
   scene.add(titleSprite);
 
-  // === Prompt Text ===
+  // === Prompt Text (3x smaller than title) ===
   promptSprite = createTextSprite('Press Space to Start', {
-    fontSize: 50,
+    fontSize: 30,
     color: '#FFFFFF',
     scale: [25 * scaleMultiplier, 5 * scaleMultiplier, 1],
     fontFamily: 'Cinzel',
@@ -116,6 +160,7 @@ export function createTitleScreen(onStartCallback) {
     }
   });
 }
+
 
 export function createTextSprite(text, options = {}) {
   const {
@@ -186,6 +231,8 @@ export function createTextSprite(text, options = {}) {
   return sprite;
 }
 
+
+
 function fadeOutAndStart(callback) {
   let opacity = 1;
 
@@ -193,6 +240,13 @@ function fadeOutAndStart(callback) {
     opacity -= 0.03;
     if (opacity <= 0) {
       const scene = window.scene;
+
+      // Stop music
+      if (titleMusic) {
+        titleMusic.pause();
+        titleMusic.currentTime = 0;
+      }
+
       scene.remove(titleSprite);
       scene.remove(promptSprite);
       callback(); // start game setup
