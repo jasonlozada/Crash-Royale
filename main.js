@@ -1,194 +1,289 @@
-// === Import Libraries ===
 import * as THREE from 'three';
-import * as CANNON from 'cannon-es';
-import CannonDebugger from 'cannon-es-debugger';
-import { loadCarModel, setupCarPhysics, wrapWheelInPivot} from './car.js';
+import { loadCarModel, setupCarPhysics, handleFalling, wrapWheelInPivot, createTextSprite} from './car.js';
+import { createCoordDisplay, createSpeedLabel, 
+  updateHUD, initStats, createTitleScreen, 
+  showLoadingScreen, updateLoadingProgress, hideLoadingScreen
+} from './display.js';
 
-// === NOTE: Scene is a global variable provided by arena.js ===
+// === Title Camera (Centered for Title Screen Only) ===
+// === Title Camera: Overview of Arena ===
+const titleCamera = new THREE.PerspectiveCamera(
+  60,                                 // wider field of view
+  window.innerWidth / window.innerHeight,
+  0.1,
+  2000
+);
+
+// Position it high and back to view the arena
+titleCamera.position.set(0, 50, 50);  // Adjust Y and Z as needed
 
 // === Renderer Setup ===
-
-const renderer = new THREE.WebGLRenderer({antialias: true});
-renderer.shadowMap.enabled = true; //for shadows
-renderer.shadowMap.type = THREE.VSMShadowMap; //for shadows (used  PCFSoftShadowMap and added ugly rows on floor)
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
 // === Camera Setup for Split Screen ===
 const camera1 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.innerHeight), 0.1, 1000);
+camera1.position.set(0, 5, -10);
 const camera2 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.innerHeight), 0.1, 1000);
-
-// === Physics Debugger ===
-const cannonDebugger = CannonDebugger(scene, world, { color: 0x00ff00 });
+camera2.position.set(0, 5, -10);
 
 // === Input Tracking ===
 const keys = {};
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-// === On-Screen Coordinate Displays ===
-function createCoordDisplay(leftOffset) {
-  const div = document.createElement('div');
-  div.className = 'coord-display';
-  div.style.position = 'fixed';
-  div.style.color = 'white';
-  div.style.fontFamily = 'monospace';
-  div.style.fontSize = '8px';
-  div.style.top = '10px';
-  div.style.left = `${leftOffset}px`;
-  div.style.zIndex = '10';
-  document.body.appendChild(div);
-  return div;
+let gameStarted = false;
+
+createTitleScreen(() => {
+  beginGameSetup();
+});
+
+
+let angle = 0;
+function animateTitleScreen() {
+  if (!gameStarted) {
+    angle += 0.002; // control rotation speed
+    const radius = 100;
+    const x = radius * Math.sin(angle);
+    const z = radius * Math.cos(angle);
+    titleCamera.position.set(x, 60, z);
+    titleCamera.lookAt(0, 0, 0);
+
+    requestAnimationFrame(animateTitleScreen);
+    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+    renderer.setScissorTest(false);
+    renderer.render(window.scene, titleCamera);
+  }
 }
 
+animateTitleScreen();
+// === HUD Setup ===
 const coordDisplay1 = createCoordDisplay(10);
 const coordDisplay2 = createCoordDisplay(window.innerWidth / 2 + 10);
-
-// Speed Label
-function createSpeedLabel(rightOffset) {
-  const div = document.createElement('div');
-  div.style.position = 'fixed';
-  div.style.color = 'white';
-  div.style.fontFamily = 'monospace';
-  div.style.fontSize = '10px';
-  div.style.bottom = '10px';
-  div.style.right = `${rightOffset}px`;
-  div.style.zIndex = '10';
-  document.body.appendChild(div);
-  return div;
-}
 
 const speedLabel1 = createSpeedLabel(window.innerWidth / 2 + 10);
 const speedLabel2 = createSpeedLabel(10);
 
 // === State Objects for Car Controls ===
-const state1 = { speed: 0, dir: 0, steering: 0, accelTimer: 0};
-const state2 = { speed: 0, dir: 0, steering: 0, accelTimer: 0};
+const state1 = { speed: 0, dir: 0, steering: 0, accelTimer: 0,  camOffset: new THREE.Vector3(0, 5, -10)};
+const state2 = { speed: 0, dir: 0, steering: 0, accelTimer: 0,  camOffset: new THREE.Vector3(0, 5, -10)};
 
-// === Load Car Model with Physics ===
+let physicsWorld;
 let car1 = null;
-loadCarModel('models/rover_blue.glb', null, (model) => {
-  car1 = model;
-  car1.wheelRotationSpeed = 0;
-  scene.add(car1);
-
-  setupCarPhysics(car1, world, new CANNON.Vec3(0, 0.5, 0));
-  car1.frontLeftPivot = wrapWheelInPivot(car1.frontLeftWheel);
-  car1.frontRightPivot = wrapWheelInPivot(car1.frontRightWheel);
-  car1.attach(car1.frontLeftPivot);
-  car1.attach(car1.frontRightPivot);
-});
-
 let car2 = null;
-loadCarModel('models/rover_red.glb', null, (model) => {
-  console.log("car2 loaded " + model.castShadow);
-  car2 = model;
-  car2.wheelRotationSpeed = 0;
-  scene.add(car2);
+let car1Loaded = false;
+let car2Loaded = false;
 
-  setupCarPhysics(car2, world, new CANNON.Vec3(10, 0.5, 0));
-  car2.frontLeftPivot = wrapWheelInPivot(car2.frontLeftWheel);
-  car2.frontRightPivot = wrapWheelInPivot(car2.frontRightWheel);
-  car2.attach(car2.frontLeftPivot);
-  car2.attach(car2.frontRightPivot);
-});
+function updateCar(car, keys, fw, bw, left, right, state, camera) {
+  if (!car || !car.physicsBody) return;
 
+  const body = car.physicsBody;
 
-
-
-// === Car Movement + Physics/Visual Update ===
-function updateCar(car, camera, keys, fw, bw, left, right, state) {
-  if (!car || !state) return;
- 
+  // === Constants ===
   const wheelRadius = 0.4;
-  const wheelCircumference = 2 * Math.PI * wheelRadius;
-  const maxWheelSpeed = 0.2;
-  const maxAcceleration = 0.03;
-  const accelerationRate = (timeHeld) => {
-    const secondsHeld = timeHeld / 60; // assume 60fps
-    return Math.min(Math.log(1 + secondsHeld) * 0.001, maxAcceleration); // logarithmic curve
-  }; 
-  const rotationToSpeedFactor = 75;
-  const steerLerp = 0.2;
-  const maxSteerAngle = 0.4;
+  const maxAccelerationForce = 2500;
+  const maxSpeed = 40;
+  const steerTorque = 250;
+  const steerLerpRate = 0.15;
+  const lateralFrictionFactor = 100;
 
-  // Acceleration logic
-  car.wheelRotationSpeed ??= 0;
+  const velocity = body.getLinearVelocity();
+  const quaternion = car.quaternion;
+
+  body.setRestitution(1);
+  body.setFriction(0.5);
+  // === Basis Vectors ===
+  const forwardVec = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion).normalize();
+  const rightVec = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion).normalize();
+
+  // === Acceleration Timer & Sign ===
+  let accelSign = 0;
   if (keys[fw]) {
-    state.accelTimer += 1;
-    car.wheelRotationSpeed = Math.min(car.wheelRotationSpeed + accelerationRate(state.accelTimer), maxWheelSpeed);
+    accelSign = 1;
+    state.accelTimer = (state.accelTimer || 0) + 1;
   } else if (keys[bw]) {
-    state.accelTimer += 1;
-    car.wheelRotationSpeed = Math.max(car.wheelRotationSpeed - accelerationRate(state.accelTimer), -maxWheelSpeed);
+    accelSign = -1;
+    state.accelTimer = (state.accelTimer || 0) + 1;
   } else {
-    state.accelTimer = 0;
-    car.wheelRotationSpeed *= 0.96;
-    if (Math.abs(car.wheelRotationSpeed) < 0.0005) car.wheelRotationSpeed = 0;
+    state.accelTimer = Math.max(0, (state.accelTimer || 0) * 0.9);
   }
 
-  // === Directional Steering ===
-  state.dir ??= 0;
-  if (Math.abs(car.wheelRotationSpeed) > 0.001) {
-    const speedFactor = Math.abs(car.wheelRotationSpeed / maxWheelSpeed); // 0 to 1
-    const turnRate = 0.03 * speedFactor;
+  // === Apply Central Force (Forward/Backward) ===
+  if (accelSign !== 0) {
+    const t = state.accelTimer / 60;
+    const accel = maxAccelerationForce * (1 - Math.exp(-2.5 * t));
+    const totalForce = accelSign * accel;
 
-    const reversing = car.wheelRotationSpeed < 0;
-    const dirMultiplier = reversing ? -1 : 1;
+    const fx = forwardVec.x * totalForce;
+    const fz = forwardVec.z * totalForce;
 
-    if (keys[left]) state.dir += turnRate * dirMultiplier;;
-    if (keys[right]) state.dir -= turnRate * dirMultiplier;
+    const horizontalSpeed = Math.sqrt(velocity.x() ** 2 + velocity.z() ** 2);
+    const movingOpposite = accelSign * forwardVec.dot(new THREE.Vector3(velocity.x(), 0, velocity.z())) < 0;
+
+    if (horizontalSpeed < maxSpeed || movingOpposite) {
+      const force = new Ammo.btVector3(fx, 0, fz);
+      body.activate();
+      body.applyCentralForce(force);
+    }
   }
 
+  // === Lateral Friction (Prevent Skidding) ===
+  const lateralSpeed = rightVec.dot(new THREE.Vector3(velocity.x(), 0, velocity.z()));
+  const frictionMag = -lateralSpeed * lateralFrictionFactor;
+  const frictionForce = new Ammo.btVector3(rightVec.x * frictionMag, 0, rightVec.z * frictionMag);
+  body.applyCentralForce(frictionForce);
 
-  // === Visual Wheel Rotation ===
-  car.wheels?.forEach(w => w.rotation.x -= car.wheelRotationSpeed);
+  // === Smoothed Steering Input ===
+  state.steeringTarget = (keys[left] ? 1 : 0) - (keys[right] ? 1 : 0);
+  let turnDirection = state.steeringTarget;
+  const velocityVec = new THREE.Vector3(velocity.x(), 0, velocity.z());
+  const reversing = forwardVec.dot(velocityVec) < -0.5;
 
-  // === Steering Pivots ===
-  let steerAngle = 0;
-  if (keys[left]) steerAngle = maxSteerAngle;
-  else if (keys[right]) steerAngle = -maxSteerAngle;
+  if(reversing){ turnDirection *= -1;}
 
-  if (car.frontLeftPivot) car.frontLeftPivot.rotation.y += (steerAngle - car.frontLeftPivot.rotation.y) * steerLerp;
-  if (car.frontRightPivot) car.frontRightPivot.rotation.y += (steerAngle - car.frontRightPivot.rotation.y) * steerLerp;
+  state.steeringSmooth = state.steeringSmooth || 0;
+  state.steeringSmooth += (turnDirection - state.steeringSmooth) * steerLerpRate;
 
-  // === Position and Orientation ===
-  const distancePerFrame = car.wheelRotationSpeed * wheelCircumference;
-  const velocity = distancePerFrame * rotationToSpeedFactor;
+  const smoothedTorque = steerTorque * state.steeringSmooth;
+  body.applyTorque(new Ammo.btVector3(0, smoothedTorque, 0));
 
-  if (car.physicsBody) {
-    const body = car.physicsBody;
-    body.velocity.set(Math.sin(state.dir) * velocity, body.velocity.y, Math.cos(state.dir) * velocity);
-    body.quaternion.setFromEuler(0, state.dir, 0);
-    car.position.copy(body.position);
-    car.quaternion.copy(body.quaternion);
-  } else {
-    car.rotation.y = state.dir;
-    car.position.x += Math.sin(state.dir) * velocity;
-    car.position.z += Math.cos(state.dir) * velocity;
+  // === Clamp Angular Velocity (Optional) ===
+  const angVel = body.getAngularVelocity();
+  const maxAngularSpeed = 3;
+  if (Math.abs(angVel.y()) > maxAngularSpeed) {
+    angVel.setY(Math.sign(angVel.y()) * maxAngularSpeed);
+    body.setAngularVelocity(angVel);
   }
 
-  // === Camera Following Logic ===
-  const camDist = 10, camHeight = 5;
-  const offset = new THREE.Vector3(Math.sin(state.dir) * -camDist, camHeight, Math.cos(state.dir) * -camDist);
-  camera.position.copy(car.position).add(offset);
-  camera.lookAt(car.position);
+  // === Sync from Physics to Three.js ===
+  const transform = new Ammo.btTransform();
+  body.getMotionState().getWorldTransform(transform);
+  const origin = transform.getOrigin();
+  const rotation = transform.getRotation();
 
-  // === State Update ===
-  car.speed = Math.abs(velocity);
-  car.dir = state.dir;
+  car.position.set(origin.x(), origin.y(), origin.z());
+  car.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+
+  // === Wheel Rotation (Visual) ===
+  const speed = Math.sqrt(velocity.x() ** 2 + velocity.z() ** 2);
+  car.speed = speed;
+  car.wheelRotationSpeed = speed / (2 * Math.PI * wheelRadius);
+  car.wheels?.forEach(w => w.rotation.x -= car.wheelRotationSpeed * 0.1);
+
+
+  // === Steering Pivots (Visual) ===
+  const maxSteerAngle = 0.4;
+  const steerLerp = 0.4;
+  const steerAngle = state.steeringSmooth * maxSteerAngle;
+
+  if (car.frontLeftPivot)
+    car.frontLeftPivot.rotation.y += (steerAngle - car.frontLeftPivot.rotation.y) * steerLerp;
+  if (car.frontRightPivot)
+    car.frontRightPivot.rotation.y += (steerAngle - car.frontRightPivot.rotation.y) * steerLerp;
+
+  // === Camera Follow ===
+
+  // === Dynamic camera offset (zoomed out if reversing) ===
+  const baseOffset = reversing
+    ? new THREE.Vector3(0, 6, 8)     // Front + higher + farther when reversing
+    : new THREE.Vector3(0, 5, -10);  // Behind normally
+
+  // Smooth rotation-based offset
+  const targetOffset = baseOffset.applyQuaternion(car.quaternion);
+  state.camOffset ??= new THREE.Vector3().copy(targetOffset);
+  state.camOffset.lerp(targetOffset, 0.1); // Smooth offset transition
+
+  // === Camera Position ===
+  const desiredCamPos = car.position.clone().add(state.camOffset);
+  camera.position.lerp(desiredCamPos, 0.1);
+
+  // === Tilt Camera Slightly Down When Reversing ===
+  const lookOffset = reversing ? new THREE.Vector3(0, -1, 0) : new THREE.Vector3(0, 0, 0);
+  const targetLookAt = car.position.clone().add(lookOffset);
+  camera.lookAt(targetLookAt);
 }
 
-// === HUD Update Function ===
-function updateHUD(car, coordDisplay, speedLabel) {
-  if (!car) return;
-  const pos = car.position;
-  coordDisplay.textContent = `X: ${pos.x.toFixed(2)}  Y: ${(pos.y - 0.5).toFixed(2)}  Z: ${pos.z.toFixed(2)}`;
-  const velocityInMps = car.speed;
-  const velocityInKph = velocityInMps * 3.6;
-  speedLabel.textContent = `${velocityInKph.toFixed(0)} km/h`;
+const loadProgress = { car1: 0, car2: 0 };
+
+
+function beginGameSetup() {
+  showLoadingScreen(); // Show loading screen with bar
+
+  waitForArenaInit().then(() => {
+    physicsWorld = window.physicsWorld;
+    const scene = window.scene;
+
+    loadCarModel('models/rover_blue.glb', scene, (model) => {
+      car1 = model;
+      setupCarPhysics(car1, physicsWorld, { x: 10, y: 0.5, z: 0 });
+
+      const label = createTextSprite('0');
+      label.position.set(0, 1, 0);
+      car1.add(label);
+      car1.userData.scoreLabel = label;
+
+      car1Loaded = true;
+      checkCarsReady();
+
+      car1.frontLeftPivot = wrapWheelInPivot(car1.frontLeftWheel);
+      car1.frontRightPivot = wrapWheelInPivot(car1.frontRightWheel);
+      car1.attach(car1.frontLeftPivot);
+      car1.attach(car1.frontRightPivot);
+    }),
+
+    loadCarModel('models/rover_red.glb', scene, (model) => {
+      car2 = model;
+      setupCarPhysics(car2, physicsWorld, { x: 0, y: 0.5, z: 0 });
+
+      const label = createTextSprite('0');
+      label.position.set(0, 1, 0);
+      car2.add(label);
+      car2.userData.scoreLabel = label;
+
+      car2Loaded = true;
+      checkCarsReady();
+
+      car2.frontLeftPivot = wrapWheelInPivot(car2.frontLeftWheel);
+      car2.frontRightPivot = wrapWheelInPivot(car2.frontRightWheel);
+      car2.attach(car2.frontLeftPivot);
+      car2.attach(car2.frontRightPivot);
+    }, 
+      (percent) => {
+      loadProgress.car1 = percent;
+      loadProgress.car2 = percent;
+
+      updateLoadingProgress((loadProgress.car1 + loadProgress.car2) / 2);
+
+    
+    });
+  });
 }
 
+// === Step 3: Wait for Ammo and Scene to Load ===
+async function waitForArenaInit() {
+  while (!window.Ammo || !window.physicsWorld || !window.scene) {
+    await new Promise(res => setTimeout(res, 30));
+  }
+}
+
+// === Step 4: Check if Both Cars Are Ready ===
+function checkCarsReady() {
+  if (car1Loaded && car2Loaded) {
+    updateLoadingProgress(100); // force full progress bar
+    setTimeout(() => {
+      hideLoadingScreen();
+      gameStarted = true;
+      animate(); // start game loop
+    }, 500);
+  }
+}
+
+
+// For Sand Trail
 function isWheelOnGround(wheel) {
   //Adjust threshold as needed
   return wheel.getWorldPosition(new THREE.Vector3()).y < 3 && wheel.getWorldPosition(new THREE.Vector3()).y > -3;
@@ -217,19 +312,17 @@ function drawWheelTrails(car) {
 let trailUpdateFrame = 0;
 const TRAIL_UPDATE_INTERVAL = 2; // Update every 5 frames (adjust as needed)
 
+const stats = initStats();
 
-// === Animation Loop ===
 function animate() {
+  if (!gameStarted) return;
+
   
-  requestAnimationFrame(animate);
+  if (physicsWorld) physicsWorld.stepSimulation(1 / 60, 2);
 
+  updateCar(car1, keys, 'w', 's', 'a', 'd', state1, camera1);
+  updateCar(car2, keys, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', state2, camera2);
 
-
-  world.step(1 / 60);
-  cannonDebugger.update();
-
-  updateCar(car1, camera1, keys, 'w', 's', 'a', 'd', state1);
-  updateCar(car2, camera2, keys, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', state2);
 
 
   // Fade out old trails )
@@ -242,31 +335,34 @@ function animate() {
     drawWheelTrails(car2);
   }
 
+    // === Falling Down ===
+  handleFalling(car1, car2, { x: 10, y: 2, z: 0 });
+  handleFalling(car2, car1, { x: -10, y: 2, z: 0 });
 
   renderer.setScissorTest(true);
 
-  // === Render Left View ===
   renderer.setViewport(0, 0, window.innerWidth / 2, window.innerHeight);
   renderer.setScissor(0, 0, window.innerWidth / 2, window.innerHeight);
-  renderer.render(scene, camera1);
 
-  // === Render Right View ===
+  renderer.render(window.scene, camera1);
+
   renderer.setViewport(window.innerWidth / 2, 0, window.innerWidth / 2, window.innerHeight);
   renderer.setScissor(window.innerWidth / 2, 0, window.innerWidth / 2, window.innerHeight);
-  renderer.render(scene, camera2);
+
+  renderer.render(window.scene, camera2);
 
   renderer.setScissorTest(false);
-  // Coordinate Display 
+
   updateHUD(car1, coordDisplay1, speedLabel1);
   updateHUD(car2, coordDisplay2, speedLabel2);
+  stats.update();
+
 
   trailUpdateFrame++;
+
+  requestAnimationFrame(animate);
 }
 
-
-animate();
-
-// === Handle Window Resize ===
 window.addEventListener('resize', () => {
   camera1.aspect = window.innerWidth / (2 * window.innerHeight);
   camera2.aspect = window.innerWidth / (2 * window.innerHeight);
@@ -274,4 +370,3 @@ window.addEventListener('resize', () => {
   camera2.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
