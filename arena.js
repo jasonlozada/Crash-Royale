@@ -130,6 +130,37 @@ scene.add(towerFloor);
 towerFloor.material.map = sandTexture;
 towerFloor.material.needsUpdate = true;
 
+
+// --- Conveyor Belts (Boosters) ---
+const conveyorBelts = [];
+const conveyorLength = 10;
+const conveyorWidth = 5;
+const conveyorHeight = 0.2;
+const conveyorMat = new THREE.MeshStandardMaterial({
+  color: 0x888888,
+  roughness: 0.5,
+  metalness: 0.3
+});
+
+// Place 4 belts at 90-degree intervals around the towerFloor edge
+for (let i = 0; i < 4; i++) {
+  const angle = i * Math.PI / 2;
+  const r = radius * 0.65; // slightly inside the edge
+  const x = Math.cos(angle) * r;
+  const z = Math.sin(angle) * r;
+  const beltGeo = new THREE.BoxGeometry(conveyorLength, conveyorHeight, conveyorWidth);
+  const belt = new THREE.Mesh(beltGeo, conveyorMat);
+  belt.position.set(x, 0.6, z); // 0.6 to sit just above towerFloor
+  belt.rotation.y = -angle;
+  belt.receiveShadow = true;
+  belt.castShadow = true;
+  belt.userData.boostDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
+  conveyorBelts.push(belt);
+  scene.add(belt);
+}
+
+
+
 // --- Dunes 
 const duneMat = new THREE.MeshStandardMaterial({
   map: sandTexture,
@@ -364,7 +395,7 @@ const mountainMat = new THREE.MeshStandardMaterial({
 });
 const mountains = new THREE.InstancedMesh(mountainGeo, mountainMat, 100);
 const tmp = new THREE.Object3D();
-for (let i = 0; i < 125; i++) {
+for (let i = 0; i < 150; i++) {
   const ang = Math.random() * Math.PI * 2;
   const dist = 830 + Math.random() * 100; // distance from center, range from 830 to 930
   const height = 45 + Math.random() * 100; // height range from 45 to 145
@@ -408,5 +439,6 @@ window.trailTexture = trailTexture;
 window.radius = radius;
 window.trailCanvasSize = trailCanvasSize;
 window.towerFloor = towerFloor;
+window.conveyorBelts = conveyorBelts;
 
 

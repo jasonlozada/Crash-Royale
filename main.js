@@ -331,6 +331,23 @@ function animate() {
   updateCar(car1, keys, 'w', 's', 'a', 'd', state1, camera1);
   updateCar(car2, keys, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', state2, camera2);
 
+
+  [car1, car2].forEach(car => {
+  if (!car) return;
+  window.conveyorBelts.forEach(belt => {
+    // Simple AABB check (could use more precise math if needed)
+    const localPos = car.position.clone().sub(belt.position).applyAxisAngle(new THREE.Vector3(0,1,0), belt.rotation.y);
+    if (Math.abs(localPos.x) < 6.5 && Math.abs(localPos.z) < 5 && Math.abs(car.position.y - belt.position.y) < 2) {
+      // Apply boost in belt's direction
+      if (car.physicsBody) {
+        const boost = belt.userData.boostDir.clone().multiplyScalar(100);
+        car.physicsBody.activate();
+        car.physicsBody.applyCentralImpulse(new Ammo.btVector3(boost.x, 0, boost.z));
+      }
+    }
+  });
+});
+
   updateCrownPosition(car1, car2, scene);
 
 
