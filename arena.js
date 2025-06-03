@@ -26,6 +26,7 @@ dir.position.set(60, 60, 25);
 dir.castShadow = true;
 dir.shadow.mapSize.set(2048, 2048);
 dir.shadow.ARENA_RADIUS = 4;
+dir.shadow.bias = -0.001;
 const d = 40;
 Object.assign(dir.shadow.camera, {
   near: 1,
@@ -263,8 +264,9 @@ const baseMat = new THREE.MeshStandardMaterial({
   metalness: 0.0
 });
 const base = new THREE.Mesh(baseGeo, baseMat);
-base.rotateX(3* Math.PI/2);
-base.translateZ(-80); 
+base.rotation.x = - Math.PI / 2; // or Math.PI / 2, depending on your up direction
+base.position.z = 0;
+base.position.y = -80;
 scene.add(base);
 
 // --- Cactus Models
