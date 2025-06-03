@@ -60,6 +60,24 @@ sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
 sandBrick.repeat.set(32, 8);
 
 
+const conveyorVideo = document.createElement('video');
+conveyorVideo.src = 'arenaTextures/conveyorBelt.mp4';
+conveyorVideo.loop = true;
+conveyorVideo.muted = true;
+conveyorVideo.playsInline = true;
+conveyorVideo.autoplay = true;
+conveyorVideo.crossOrigin = 'anonymous';
+conveyorVideo.load();
+conveyorVideo.play();
+
+const conveyorTexture = new THREE.VideoTexture(conveyorVideo);
+conveyorTexture.wrapS = THREE.RepeatWrapping;
+conveyorTexture.wrapT = THREE.RepeatWrapping;
+conveyorTexture.repeat.set(1, 1);
+
+
+
+
 const sandImage = new window.Image();
 sandImage.src = 'arenaTextures/sandTexture.jpg';
 window.sandImage = sandImage; 
@@ -137,11 +155,12 @@ const conveyorLength = 10;
 const conveyorWidth = 5;
 const conveyorHeight = 0.2;
 const conveyorMat = new THREE.MeshStandardMaterial({
-  color: 0x888888,
+  map: conveyorTexture,
+  color: 0xffffff, // keep white to preserve GIF colors
   roughness: 0.5,
-  metalness: 0.3
+  metalness: 0.3,
+  side: THREE.DoubleSide
 });
-
 // Place 4 belts at 90-degree intervals around the towerFloor edge
 for (let i = 0; i < 4; i++) {
   const angle = i * Math.PI / 2;
@@ -157,6 +176,9 @@ for (let i = 0; i < 4; i++) {
   belt.userData.boostDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
   conveyorBelts.push(belt);
   scene.add(belt);
+  belt.material.map.rotation = Math.PI / 2; // Rotate 90 degrees
+belt.material.map.center.set(0.5, 0.5);   // Rotate around center
+belt.material.needsUpdate = true;
 }
 
 

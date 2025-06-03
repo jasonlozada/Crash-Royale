@@ -394,3 +394,4 @@ window.addEventListener('resize', () => {
   camera2.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
