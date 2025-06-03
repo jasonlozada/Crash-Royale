@@ -53,7 +53,7 @@ stoneTexture.repeat.set(8, 8);
 const desertBase = loader.load('arenaTextures/sandTexture.jpg');
 desertBase.wrapS = desertBase.wrapT = THREE.RepeatWrapping;
 
-desertBase.repeat.set(32,32);
+desertBase.repeat.set(64,64);
 
 const sandBrick = loader.load('arenaTextures/sandBrick1.jpg');
 sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
