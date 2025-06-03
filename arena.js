@@ -141,7 +141,7 @@ const duneMat = new THREE.MeshStandardMaterial({
 const duneHeight = 5, duneRadius = 5, duneSegs = 64;
 const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
 
-class dune extends THREE.Mesh{
+/*class dune extends THREE.Mesh{
     constructor(x, y, z) {
         super(coneGeo, duneMat);
         this.position.set(x, y, z);
@@ -151,7 +151,7 @@ class dune extends THREE.Mesh{
 const dune1 = new dune(18, 2.5, 5);   
 const dune2 = new dune(-15, 2.5, -7); 
 scene.add(dune1);
-scene.add(dune2);
+scene.add(dune2);*/
 
 // === Ammo.js Physics Initialization ===
 let physicsWorld;
@@ -193,6 +193,34 @@ if (typeof window.Ammo === 'function') {
     const towerBody = new Ammo.btRigidBody(towerRbInfo);
     towerBody.setFriction(1.0);
     physicsWorld.addRigidBody(towerBody);
+    
+    const duneMat = new THREE.MeshStandardMaterial({
+      map: sandTexture,
+      color: 0xEED9A2,
+      side: THREE.DoubleSide,
+      roughness: 1.0,
+      metalness: 0.0
+    });
+    const duneHeight = 5, duneRadius = 5, duneSegs = 64;
+    const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
+    
+    const numDunes = 40;
+    const duneSpread = 600;
+    for (let i = 0; i < numDunes; i++) {
+      const x = (Math.random() * 2 - 1) * duneSpread;
+      const z = (Math.random() * 2 - 1) * duneSpread;
+      // Place dunes on the base, not on the tower floor
+      if (Math.sqrt(x * x + z * z) < radius + 10) continue; // skip if too close to tower
+      const y = -79; // match base level
+      const dune = new THREE.Mesh(coneGeo, duneMat);
+      dune.position.set(x, y, z);
+      dune.rotation.y = Math.random() * Math.PI * 2;
+      const s = 0.7 + Math.random() * 1.2;
+      dune.scale.set(s, s, s);
+      dune.castShadow = true;
+      dune.receiveShadow = true;
+      scene.add(dune);
+    }
 
         console.log("Ammo.js physics world initialized");
       }).catch(err => {
@@ -201,6 +229,8 @@ if (typeof window.Ammo === 'function') {
 } else {
   console.error('Ammo not loaded. Make sure ammo.js is available globally.');
 }
+
+
 
 
 
@@ -245,7 +275,7 @@ gltfLoader.load(
 'arenaProps/Cactus.glb',
 (gltf) => { 
 const proto = gltf.scene;
-const numCacti = 80;
+const numCacti = 65;
 const spread = 600;
 for (let i = 0; i < numCacti; i++) {
   const cactus = proto.clone(true);
@@ -267,6 +297,61 @@ for (let i = 0; i < numCacti; i++) {
   }
 });
 
+
+
+gltfLoader.load(
+  'arenaProps/Rock.glb',
+  (gltf) => {
+    const proto = gltf.scene;
+    const numRocks = 30; // Adjust as desired
+    const spread = 600;
+    for (let i = 0; i < numRocks; i++) {
+      const rock = proto.clone(true);
+      const x = (Math.random() * 2 - 1) * spread;
+      const z = (Math.random() * 2 - 1) * spread;
+      rock.position.set(x, -80, z);
+      rock.rotation.y = Math.random() * Math.PI * 2;
+      // Random scale for height/size
+      const s = 3 + Math.random() * 5; // wider range for rocks
+      rock.scale.set(s, 3 + Math.random() * 5, s); // randomize Y for height
+      rock.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      scene.add(rock);
+    }
+  }
+);
+
+
+gltfLoader.load(
+  'arenaProps/Boulder.glb',
+  (gltf) => {
+    const proto = gltf.scene;
+    const numBoulders = 20; // Adjust as desired
+    const spread = 600;
+    for (let i = 0; i < numBoulders; i++) {
+      const boulder = proto.clone(true);
+      const x = (Math.random() * 2 - 1) * spread;
+      const z = (Math.random() * 2 - 1) * spread;
+      boulder.position.set(x, -80, z);
+      boulder.rotation.y = Math.random() * Math.PI * 2;
+      // Random scale for height/size
+      const s = 10 + Math.random() * 20; // wider range for rocks
+      boulder.scale.set(s, 10 + Math.random() * 20, s); // randomize Y for height
+      boulder.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      scene.add(boulder);
+    }
+  }
+);
+
 // --- Mountains
 const mountainGeo = new THREE.ConeGeometry(1, 1, 4);
 const mountainMat = new THREE.MeshStandardMaterial({
@@ -277,10 +362,10 @@ const mountainMat = new THREE.MeshStandardMaterial({
 });
 const mountains = new THREE.InstancedMesh(mountainGeo, mountainMat, 100);
 const tmp = new THREE.Object3D();
-for (let i = 0; i < 100; i++) {
+for (let i = 0; i < 125; i++) {
   const ang = Math.random() * Math.PI * 2;
-  const dist = 830 + Math.random() * 20;
-  const height = 70 + Math.random() * 70;
+  const dist = 830 + Math.random() * 100; // distance from center, range from 830 to 930
+  const height = 45 + Math.random() * 100; // height range from 45 to 145
 
   const baseY  = -80;             // updated to match new base level
   tmp.position.set(
@@ -303,11 +388,6 @@ scene.add(mountains);
 // --- adding shadows to objects
 towerFloor.receiveShadow = true;
 towerFloor.castShadow = false;
-
-dune1.receiveShadow = false;
-dune1.castShadow = true;
-dune2.receiveShadow = false;
-dune2.castShadow = true;
 
 towerSide.receiveShadow = false;
 towerSide.castShadow = true;

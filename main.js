@@ -318,7 +318,7 @@ function drawWheelTrails(car) {
 }
 
 let trailUpdateFrame = 0;
-const TRAIL_UPDATE_INTERVAL = 2; // Update every 5 frames (adjust as needed)
+const TRAIL_UPDATE_INTERVAL = 2; // Update every 2 frames (adjust as needed)
 
 const stats = initStats();
 
