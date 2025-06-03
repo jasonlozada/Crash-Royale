@@ -71,7 +71,7 @@ export function setupCarPhysics(car, physicsWorld, position) {
   const compoundShape = new Ammo.btCompoundShape();
 
   // Chassis
-  const halfExtents = new Ammo.btVector3(1, 0.5, 2);
+  const halfExtents = new Ammo.btVector3(1.25, 0.5, 2);
   const chassisShape = new Ammo.btBoxShape(halfExtents);
   const chassisTransform = new Ammo.btTransform();
   chassisTransform.setIdentity();
@@ -103,6 +103,7 @@ export function setupCarPhysics(car, physicsWorld, position) {
   const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, compoundShape, localInertia);
   const body = new Ammo.btRigidBody(rbInfo);
   body.setDamping(0.1, 0.5);
+  body.setRestitution(3); // default is 1, increase number for more bounce
 
   physicsWorld.addRigidBody(body);
   car.physicsBody = body;

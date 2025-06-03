@@ -224,8 +224,7 @@ function beginGameSetup() {
     
     loadCarModel('models/rover_blue.glb', scene, (model) => {
       car1 = model;
-      setupCarPhysics(car1, physicsWorld, { x: 10, y: 0.5, z: 0 });
-
+      setupCarPhysics(car1, physicsWorld, { x: 5, y: 0.5, z: 0 });
       const label = createTextSprite('0');
       label.position.set(0, 1, 0);
       car1.add(label);
@@ -242,8 +241,7 @@ function beginGameSetup() {
 
     loadCarModel('models/rover_red.glb', scene, (model) => {
       car2 = model;
-      setupCarPhysics(car2, physicsWorld, { x: 0, y: 0.5, z: 0 });
-
+      setupCarPhysics(car2, physicsWorld, { x: -5, y: 0.5, z: 0 });
       const label = createTextSprite('0');
       label.position.set(0, 1, 0);
       car2.add(label);
