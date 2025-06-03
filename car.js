@@ -37,6 +37,13 @@ export function loadCarModel(modelPath, scene, onLoadCallback = () => {}, onProg
       model.frontLeftWheel = model.wheels.find(w => w.name.includes('4001'));
       model.frontRightWheel = model.wheels.find(w => w.name.includes('5'));
 
+      model.traverse(obj => {
+      if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true; // Optional: if you want wheels to receive shadows from other objects
+    }
+  });
+
       if (scene) scene.add(model);
       onLoadCallback(model);
     },

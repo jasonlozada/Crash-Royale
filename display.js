@@ -335,6 +335,8 @@ const loader = new GLTFLoader();
 loader.load('/models/crown.glb', (gltf) => {
   crownModel = gltf.scene;
   crownModel.scale.set(0.4, 0.4, 0.4);
+
+  
 });
 
 let crownInstance = null;
@@ -370,5 +372,14 @@ export function updateCrownPosition(car1, car2, scene) {
     leader.position.y + offsetY,
     leader.position.z
   );
+
+  crownModel.traverse(obj => {
+    if (obj.isMesh && obj.material) {
+      obj.material.emissive = new THREE.Color('#FFFFFF'); // white
+      obj.material.emissiveIntensity = 0.035; // increase as needed
+      obj.material.needsUpdate = true;
+
+    }
+  });
   crownInstance.quaternion.copy(leader.quaternion);
 }

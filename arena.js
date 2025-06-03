@@ -26,6 +26,7 @@ dir.position.set(60, 60, 25);
 dir.castShadow = true;
 dir.shadow.mapSize.set(2048, 2048);
 dir.shadow.ARENA_RADIUS = 4;
+dir.shadow.bias = -0.001;
 const d = 40;
 Object.assign(dir.shadow.camera, {
   near: 1,
@@ -121,11 +122,12 @@ const towerFloorMat = new THREE.MeshStandardMaterial({
 });
 const towerFloor = new THREE.Mesh(towerFloorGeo, towerFloorMat);
 towerFloor.rotation.x = -Math.PI / 2;
+towerFloor.position.set(0, 0.5, 0);
 towerFloor.receiveShadow = true;
 scene.add(towerFloor);
 
 // Assign to towerFloor
-towerFloor.material.map = trailTexture;
+towerFloor.material.map = sandTexture;
 towerFloor.material.needsUpdate = true;
 
 // --- Dunes 
@@ -140,7 +142,7 @@ const duneMat = new THREE.MeshStandardMaterial({
 const duneHeight = 5, duneRadius = 5, duneSegs = 64;
 const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
 
-class dune extends THREE.Mesh{
+/*class dune extends THREE.Mesh{
     constructor(x, y, z) {
         super(coneGeo, duneMat);
         this.position.set(x, y, z);
@@ -150,7 +152,7 @@ class dune extends THREE.Mesh{
 const dune1 = new dune(18, 2.5, 5);   
 const dune2 = new dune(-15, 2.5, -7); 
 scene.add(dune1);
-scene.add(dune2);
+scene.add(dune2);*/
 
 // === Ammo.js Physics Initialization ===
 let physicsWorld;
@@ -171,21 +173,56 @@ if (typeof window.Ammo === 'function') {
     const GROUND_HEIGHT = 0.2;
 
     // Arena Ground Body
-    const groundShape = new Ammo.btBoxShape(
-      new Ammo.btVector3(ARENA_RADIUS, GROUND_HEIGHT / 2, ARENA_RADIUS)
+    const towerRadius = ARENA_RADIUS + 1;
+    const towerHeight = 80.0;      // matches CylinderGeometry height
+
+    const towerShape = new Ammo.btCylinderShape(
+      new Ammo.btVector3(towerRadius, towerHeight / 2, towerRadius)
     );
 
-    const groundTransform = new Ammo.btTransform();
-    groundTransform.setIdentity();
-    groundTransform.setOrigin(new Ammo.btVector3(0, -GROUND_HEIGHT / 2, 0)); // y=0 top surface
+    const towerTransform = new Ammo.btTransform();
+    towerTransform.setIdentity();
+    towerTransform.setOrigin(new Ammo.btVector3(0, -40.0, 0)); // center of cylinder
 
-    const groundMotionState = new Ammo.btDefaultMotionState(groundTransform);
-    const groundRbInfo = new Ammo.btRigidBodyConstructionInfo(
-      0, groundMotionState, groundShape, new Ammo.btVector3(0, 0, 0)
+    const towerMotionState = new Ammo.btDefaultMotionState(towerTransform);
+    const towerMass = 0; // static
+    const towerInertia = new Ammo.btVector3(0, 0, 0);
+
+    const towerRbInfo = new Ammo.btRigidBodyConstructionInfo(
+      towerMass, towerMotionState, towerShape, towerInertia
     );
-    const groundBody = new Ammo.btRigidBody(groundRbInfo);
-    groundBody.setFriction(1.0);
-    physicsWorld.addRigidBody(groundBody);
+    const towerBody = new Ammo.btRigidBody(towerRbInfo);
+    towerBody.setFriction(1.0);
+    physicsWorld.addRigidBody(towerBody);
+    
+    const duneMat = new THREE.MeshStandardMaterial({
+      map: sandTexture,
+      color: 0xEED9A2,
+      side: THREE.DoubleSide,
+      roughness: 1.0,
+      metalness: 0.0
+    });
+    const duneHeight = 5, duneRadius = 5, duneSegs = 64;
+    const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
+    
+    const numDunes = 40;
+    const duneSpread = 600;
+    for (let i = 0; i < numDunes; i++) {
+      const x = (Math.random() * 2 - 1) * duneSpread;
+      const z = (Math.random() * 2 - 1) * duneSpread;
+      // Place dunes on the base, not on the tower floor
+      if (Math.sqrt(x * x + z * z) < radius + 10) continue; // skip if too close to tower
+      const y = -79; // match base level
+      const dune = new THREE.Mesh(coneGeo, duneMat);
+      dune.position.set(x, y, z);
+      dune.rotation.y = Math.random() * Math.PI * 2;
+      const s = 0.7 + Math.random() * 1.2;
+      dune.scale.set(s, s, s);
+      dune.castShadow = true;
+      dune.receiveShadow = true;
+      scene.add(dune);
+    }
+
         console.log("Ammo.js physics world initialized");
       }).catch(err => {
         console.error('Failed to load Ammo.js:', err);
@@ -193,6 +230,8 @@ if (typeof window.Ammo === 'function') {
 } else {
   console.error('Ammo not loaded. Make sure ammo.js is available globally.');
 }
+
+
 
 
 
@@ -207,7 +246,7 @@ const towerSideMat = new THREE.MeshStandardMaterial({
 });
 const topRadius = 1 + radius;
 const bottomRadius = topRadius; // Make the cylinder straight
-const towerSideGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 80, segs); // height = 80
+const towerSideGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 80.4, segs); // height = 80
 const towerSide = new THREE.Mesh(towerSideGeo, towerSideMat);
 towerSide.receiveShadow = true;
 towerSide.translateY(-40.01); 
@@ -225,8 +264,9 @@ const baseMat = new THREE.MeshStandardMaterial({
   metalness: 0.0
 });
 const base = new THREE.Mesh(baseGeo, baseMat);
-base.rotateX(3* Math.PI/2);
-base.translateZ(-80); 
+base.rotation.x = - Math.PI / 2; // or Math.PI / 2, depending on your up direction
+base.position.z = 0;
+base.position.y = -80;
 scene.add(base);
 
 // --- Cactus Models
@@ -237,13 +277,13 @@ gltfLoader.load(
 'arenaProps/Cactus.glb',
 (gltf) => { 
 const proto = gltf.scene;
-const numCacti = 40;
+const numCacti = 65;
 const spread = 600;
 for (let i = 0; i < numCacti; i++) {
   const cactus = proto.clone(true);
   const x = (Math.random() * 2 - 1) * spread;
   const z = (Math.random() * 2 - 1) * spread;
-  cactus.position.set(x, -80, z); 
+  cactus.position.set(x, -82, z); 
   cactus.rotation.y = Math.random() * Math.PI * 2;
   const s = 0.5 + Math.random() * 1.5;
   cactus.scale.set(s, s, s);
@@ -259,6 +299,61 @@ for (let i = 0; i < numCacti; i++) {
   }
 });
 
+
+
+gltfLoader.load(
+  'arenaProps/Rock.glb',
+  (gltf) => {
+    const proto = gltf.scene;
+    const numRocks = 30; // Adjust as desired
+    const spread = 600;
+    for (let i = 0; i < numRocks; i++) {
+      const rock = proto.clone(true);
+      const x = (Math.random() * 2 - 1) * spread;
+      const z = (Math.random() * 2 - 1) * spread;
+      rock.position.set(x, -80, z);
+      rock.rotation.y = Math.random() * Math.PI * 2;
+      // Random scale for height/size
+      const s = 3 + Math.random() * 5; // wider range for rocks
+      rock.scale.set(s, 3 + Math.random() * 5, s); // randomize Y for height
+      rock.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      scene.add(rock);
+    }
+  }
+);
+
+
+gltfLoader.load(
+  'arenaProps/Boulder.glb',
+  (gltf) => {
+    const proto = gltf.scene;
+    const numBoulders = 20; // Adjust as desired
+    const spread = 600;
+    for (let i = 0; i < numBoulders; i++) {
+      const boulder = proto.clone(true);
+      const x = (Math.random() * 2 - 1) * spread;
+      const z = (Math.random() * 2 - 1) * spread;
+      boulder.position.set(x, -80, z);
+      boulder.rotation.y = Math.random() * Math.PI * 2;
+      // Random scale for height/size
+      const s = 10 + Math.random() * 20; // wider range for rocks
+      boulder.scale.set(s, 10 + Math.random() * 20, s); // randomize Y for height
+      boulder.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      scene.add(boulder);
+    }
+  }
+);
+
 // --- Mountains
 const mountainGeo = new THREE.ConeGeometry(1, 1, 4);
 const mountainMat = new THREE.MeshStandardMaterial({
@@ -269,15 +364,15 @@ const mountainMat = new THREE.MeshStandardMaterial({
 });
 const mountains = new THREE.InstancedMesh(mountainGeo, mountainMat, 100);
 const tmp = new THREE.Object3D();
-for (let i = 0; i < 100; i++) {
+for (let i = 0; i < 125; i++) {
   const ang = Math.random() * Math.PI * 2;
-  const dist = 830 + Math.random() * 20;
-  const height = 70 + Math.random() * 70;
+  const dist = 830 + Math.random() * 100; // distance from center, range from 830 to 930
+  const height = 45 + Math.random() * 100; // height range from 45 to 145
 
   const baseY  = -80;             // updated to match new base level
   tmp.position.set(
     Math.cos(ang) * dist,
-    baseY + height * 0.5,           // raise so half the cone sits below the apex
+    baseY + height * 0.5,         
     Math.sin(ang) * dist
   );
   // scale cone so its height is `height`
@@ -296,11 +391,6 @@ scene.add(mountains);
 towerFloor.receiveShadow = true;
 towerFloor.castShadow = false;
 
-dune1.receiveShadow = false;
-dune1.castShadow = true;
-dune2.receiveShadow = false;
-dune2.castShadow = true;
-
 towerSide.receiveShadow = false;
 towerSide.castShadow = true;
 
@@ -317,5 +407,6 @@ window.trailCtx = trailCtx;
 window.trailTexture = trailTexture;
 window.radius = radius;
 window.trailCanvasSize = trailCanvasSize;
+window.towerFloor = towerFloor;
 
 
