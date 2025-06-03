@@ -52,7 +52,7 @@ stoneTexture.repeat.set(8, 8);
 const desertBase = loader.load('arenaTextures/sandTexture.jpg');
 desertBase.wrapS = desertBase.wrapT = THREE.RepeatWrapping;
 
-desertBase.repeat.set(64,64);
+desertBase.repeat.set(32,32);
 
 const sandBrick = loader.load('arenaTextures/sandBrick1.jpg');
 sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
@@ -121,11 +121,12 @@ const towerFloorMat = new THREE.MeshStandardMaterial({
 });
 const towerFloor = new THREE.Mesh(towerFloorGeo, towerFloorMat);
 towerFloor.rotation.x = -Math.PI / 2;
+towerFloor.position.set(0, 0.5, 0);
 towerFloor.receiveShadow = true;
 scene.add(towerFloor);
 
 // Assign to towerFloor
-towerFloor.material.map = trailTexture;
+towerFloor.material.map = sandTexture;
 towerFloor.material.needsUpdate = true;
 
 // --- Dunes 
@@ -171,21 +172,28 @@ if (typeof window.Ammo === 'function') {
     const GROUND_HEIGHT = 0.2;
 
     // Arena Ground Body
-    const groundShape = new Ammo.btBoxShape(
-      new Ammo.btVector3(ARENA_RADIUS, GROUND_HEIGHT / 2, ARENA_RADIUS)
+    const towerRadius = ARENA_RADIUS + 1;
+    const towerHeight = 80.0;      // matches CylinderGeometry height
+
+    const towerShape = new Ammo.btCylinderShape(
+      new Ammo.btVector3(towerRadius, towerHeight / 2, towerRadius)
     );
 
-    const groundTransform = new Ammo.btTransform();
-    groundTransform.setIdentity();
-    groundTransform.setOrigin(new Ammo.btVector3(0, -GROUND_HEIGHT / 2, 0)); // y=0 top surface
+    const towerTransform = new Ammo.btTransform();
+    towerTransform.setIdentity();
+    towerTransform.setOrigin(new Ammo.btVector3(0, -40.0, 0)); // center of cylinder
 
-    const groundMotionState = new Ammo.btDefaultMotionState(groundTransform);
-    const groundRbInfo = new Ammo.btRigidBodyConstructionInfo(
-      0, groundMotionState, groundShape, new Ammo.btVector3(0, 0, 0)
+    const towerMotionState = new Ammo.btDefaultMotionState(towerTransform);
+    const towerMass = 0; // static
+    const towerInertia = new Ammo.btVector3(0, 0, 0);
+
+    const towerRbInfo = new Ammo.btRigidBodyConstructionInfo(
+      towerMass, towerMotionState, towerShape, towerInertia
     );
-    const groundBody = new Ammo.btRigidBody(groundRbInfo);
-    groundBody.setFriction(1.0);
-    physicsWorld.addRigidBody(groundBody);
+    const towerBody = new Ammo.btRigidBody(towerRbInfo);
+    towerBody.setFriction(1.0);
+    physicsWorld.addRigidBody(towerBody);
+
         console.log("Ammo.js physics world initialized");
       }).catch(err => {
         console.error('Failed to load Ammo.js:', err);
@@ -207,7 +215,7 @@ const towerSideMat = new THREE.MeshStandardMaterial({
 });
 const topRadius = 1 + radius;
 const bottomRadius = topRadius; // Make the cylinder straight
-const towerSideGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 80, segs); // height = 80
+const towerSideGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 80.4, segs); // height = 80
 const towerSide = new THREE.Mesh(towerSideGeo, towerSideMat);
 towerSide.receiveShadow = true;
 towerSide.translateY(-40.01); 
@@ -237,13 +245,13 @@ gltfLoader.load(
 'arenaProps/Cactus.glb',
 (gltf) => { 
 const proto = gltf.scene;
-const numCacti = 40;
+const numCacti = 80;
 const spread = 600;
 for (let i = 0; i < numCacti; i++) {
   const cactus = proto.clone(true);
   const x = (Math.random() * 2 - 1) * spread;
   const z = (Math.random() * 2 - 1) * spread;
-  cactus.position.set(x, -80, z); 
+  cactus.position.set(x, -82, z); 
   cactus.rotation.y = Math.random() * Math.PI * 2;
   const s = 0.5 + Math.random() * 1.5;
   cactus.scale.set(s, s, s);
@@ -277,7 +285,7 @@ for (let i = 0; i < 100; i++) {
   const baseY  = -80;             // updated to match new base level
   tmp.position.set(
     Math.cos(ang) * dist,
-    baseY + height * 0.5,           // raise so half the cone sits below the apex
+    baseY + height * 0.5,         
     Math.sin(ang) * dist
   );
   // scale cone so its height is `height`
@@ -317,5 +325,6 @@ window.trailCtx = trailCtx;
 window.trailTexture = trailTexture;
 window.radius = radius;
 window.trailCanvasSize = trailCanvasSize;
+window.towerFloor = towerFloor;
 
 

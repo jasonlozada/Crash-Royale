@@ -215,11 +215,11 @@ const loadProgress = { car1: 0, car2: 0 };
 
 function beginGameSetup() {
   showLoadingScreen(); // Show loading screen with bar
-
+  
   waitForArenaInit().then(() => {
     physicsWorld = window.physicsWorld;
     const scene = window.scene;
-
+    
     loadCarModel('models/rover_blue.glb', scene, (model) => {
       car1 = model;
       setupCarPhysics(car1, physicsWorld, { x: 10, y: 0.5, z: 0 });
@@ -264,6 +264,9 @@ function beginGameSetup() {
     
     });
   });
+
+  window.towerFloor.material.map = trailTexture;
+  window.towerFloor.material.needsUpdate = true;
 }
 
 // === Step 3: Wait for Ammo and Scene to Load ===
