@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+// === Scene Setup ===
 const scene = window.scene || new THREE.Scene();
 window.scene = scene;
 
-// --- Sky
+// === Sky and Fog ===
 const skyCanvas = document.createElement('canvas');
 skyCanvas.width = 16;
 skyCanvas.height = 256;
@@ -20,27 +21,25 @@ skyTexture.minFilter = THREE.LinearFilter;
 scene.background = skyTexture;
 scene.fog = new THREE.Fog('#c6b295', 50, 850);
 
-// --- Lights
+// === Lighting ===
 const dir = new THREE.DirectionalLight(0xffffff, 1);
 dir.position.set(60, 60, 25);
 dir.castShadow = true;
 dir.shadow.mapSize.set(2048, 2048);
-dir.shadow.ARENA_RADIUS = 4;
 dir.shadow.bias = -0.001;
-const d = 40;
 Object.assign(dir.shadow.camera, {
   near: 1,
   far: 375,
-  left: -6 * d,
-  right: 6 * d,
-  top: 6 * d,
-  bottom: -6 * d
+  left: -240,
+  right: 240,
+  top: 240,
+  bottom: -240
 });
 dir.shadow.camera.updateProjectionMatrix();
 scene.add(dir);
 scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-// --- Textures
+// === Texture Loading ===
 const loader = new THREE.TextureLoader();
 const sandTexture = loader.load('arenaTextures/sandTexture.jpg');
 sandTexture.wrapS = sandTexture.wrapT = THREE.RepeatWrapping;
@@ -52,28 +51,23 @@ stoneTexture.repeat.set(8, 8);
 
 const desertBase = loader.load('arenaTextures/sandTexture.jpg');
 desertBase.wrapS = desertBase.wrapT = THREE.RepeatWrapping;
-
-desertBase.repeat.set(64,64);
+desertBase.repeat.set(64, 64);
 
 const sandBrick = loader.load('arenaTextures/sandBrick1.jpg');
 sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
 sandBrick.repeat.set(32, 8);
 
-
 const sandImage = new window.Image();
 sandImage.src = 'arenaTextures/sandTexture.jpg';
-window.sandImage = sandImage; 
+window.sandImage = sandImage;
 
-// --- Sand Trail Canvas
+// === Trail Canvas ===
 const trailCanvasSize = 512;
 const trailCanvas = document.createElement('canvas');
 trailCanvas.width = trailCanvas.height = trailCanvasSize;
 const trailCtx = trailCanvas.getContext('2d');
 
-// Draw the sand texture as the background of the trail canvas
-
 function fillCanvasWithRepeatedImage(ctx, img, canvasSize, repeatCount = 16) {
-  // repeatCount: how many times the image repeats across the canvas
   const tileSize = canvasSize / repeatCount;
   for (let y = 0; y < repeatCount; ++y) {
     for (let x = 0; x < repeatCount; ++x) {
@@ -84,39 +78,32 @@ function fillCanvasWithRepeatedImage(ctx, img, canvasSize, repeatCount = 16) {
 }
 window.fillCanvasWithRepeatedImage = fillCanvasWithRepeatedImage;
 
-  if (window.sandImage.complete) {
-  fillCanvasWithRepeatedImage(trailCtx, window.sandImage, trailCanvasSize, 4); // 4 = repeat 4x4
-  } else {
+if (window.sandImage.complete) {
+  fillCanvasWithRepeatedImage(trailCtx, window.sandImage, trailCanvasSize, 4);
+} else {
   window.sandImage.onload = () => {
     fillCanvasWithRepeatedImage(trailCtx, window.sandImage, trailCanvasSize, 4);
   };
 }
 
-// Fill with white (no trail)
-//trailCtx.fillStyle = '#fff';
-//trailCtx.fillRect(0, 0, trailCanvasSize, trailCanvasSize);
-
 const trailTexture = new THREE.CanvasTexture(trailCanvas);
 trailTexture.wrapS = trailTexture.wrapT = THREE.ClampToEdgeWrapping;
 trailTexture.needsUpdate = true;
 
-const radius = 35, segs = 64;
-
-// Helper for mapping world XZ to canvas UV
+// === Helper Function for UV Mapping ===
+const radius = 35;
 function worldToUV(x, z) {
-  // towerFloor is centered at (0,0), radius = 35
   const u = (x / (radius * 2)) + 0.5;
   const v = (z / (radius * 2)) + 0.5;
   return [u, v];
 }
 
-// --- towerFloor (Floor of tower)
-
-const towerFloorGeo = new THREE.CircleGeometry(radius, segs);
+// === Tower Floor ===
+const towerFloorGeo = new THREE.CircleGeometry(radius, 64);
 const towerFloorMat = new THREE.MeshStandardMaterial({
-  map:       sandTexture,
-  color:     0xEED9A2,
-  side:      THREE.DoubleSide,
+  map: sandTexture,
+  color: 0xEED9A2,
+  side: THREE.DoubleSide,
   roughness: 1.0,
   metalness: 0.0
 });
@@ -126,235 +113,82 @@ towerFloor.position.set(0, 0.5, 0);
 towerFloor.receiveShadow = true;
 scene.add(towerFloor);
 
-// Assign to towerFloor
-towerFloor.material.map = sandTexture;
-towerFloor.material.needsUpdate = true;
+// === Dunes ===
+const duneMat = towerFloorMat;
+const coneGeo = new THREE.ConeGeometry(5, 5, 64);
+for (let i = 0; i < 40; i++) {
+  const x = (Math.random() * 2 - 1) * 600;
+  const z = (Math.random() * 2 - 1) * 600;
+  if (Math.sqrt(x * x + z * z) < radius + 10) continue;
+  const dune = new THREE.Mesh(coneGeo, duneMat);
+  dune.position.set(x, -79, z);
+  dune.rotation.y = Math.random() * Math.PI * 2;
+  const s = 0.7 + Math.random() * 1.2;
+  dune.scale.set(s, s, s);
+  dune.castShadow = true;
+  dune.receiveShadow = true;
+  scene.add(dune);
+}
 
-// --- Dunes 
-const duneMat = new THREE.MeshStandardMaterial({
-  map: sandTexture,
+// === Tower Side ===
+const towerSideGeo = new THREE.CylinderGeometry(36, 36, 80.4, 64);
+const towerSideMat = new THREE.MeshStandardMaterial({
+  map: sandBrick,
   color: 0xEED9A2,
   side: THREE.DoubleSide,
   roughness: 1.0,
   metalness: 0.0
 });
-
-const duneHeight = 5, duneRadius = 5, duneSegs = 64;
-const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
-
-/*class dune extends THREE.Mesh{
-    constructor(x, y, z) {
-        super(coneGeo, duneMat);
-        this.position.set(x, y, z);
-        this.receiveShadow = true;
-      }
-}
-const dune1 = new dune(18, 2.5, 5);   
-const dune2 = new dune(-15, 2.5, -7); 
-scene.add(dune1);
-scene.add(dune2);*/
-
-// === Ammo.js Physics Initialization ===
-let physicsWorld;
-
-if (typeof window.Ammo === 'function') {
-  window.Ammo().then(Ammo => {
-    window.Ammo = Ammo;
-
-    const collisionConfig = new Ammo.btDefaultCollisionConfiguration();
-    const dispatcher = new Ammo.btCollisionDispatcher(collisionConfig);
-    const broadphase = new Ammo.btDbvtBroadphase();
-    const solver = new Ammo.btSequentialImpulseConstraintSolver();
-    physicsWorld = new Ammo.btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfig);
-    physicsWorld.setGravity(new Ammo.btVector3(0, -9.82, 0));
-    window.physicsWorld = physicsWorld;
-    
-    const ARENA_RADIUS = 35;
-    const GROUND_HEIGHT = 0.2;
-
-    // Arena Ground Body
-    const towerRadius = ARENA_RADIUS + 1;
-    const towerHeight = 80.0;      // matches CylinderGeometry height
-
-    const towerShape = new Ammo.btCylinderShape(
-      new Ammo.btVector3(towerRadius, towerHeight / 2, towerRadius)
-    );
-
-    const towerTransform = new Ammo.btTransform();
-    towerTransform.setIdentity();
-    towerTransform.setOrigin(new Ammo.btVector3(0, -40.0, 0)); // center of cylinder
-
-    const towerMotionState = new Ammo.btDefaultMotionState(towerTransform);
-    const towerMass = 0; // static
-    const towerInertia = new Ammo.btVector3(0, 0, 0);
-
-    const towerRbInfo = new Ammo.btRigidBodyConstructionInfo(
-      towerMass, towerMotionState, towerShape, towerInertia
-    );
-    const towerBody = new Ammo.btRigidBody(towerRbInfo);
-    towerBody.setFriction(1.0);
-    physicsWorld.addRigidBody(towerBody);
-    
-    const duneMat = new THREE.MeshStandardMaterial({
-      map: sandTexture,
-      color: 0xEED9A2,
-      side: THREE.DoubleSide,
-      roughness: 1.0,
-      metalness: 0.0
-    });
-    const duneHeight = 5, duneRadius = 5, duneSegs = 64;
-    const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
-    
-    const numDunes = 40;
-    const duneSpread = 600;
-    for (let i = 0; i < numDunes; i++) {
-      const x = (Math.random() * 2 - 1) * duneSpread;
-      const z = (Math.random() * 2 - 1) * duneSpread;
-      // Place dunes on the base, not on the tower floor
-      if (Math.sqrt(x * x + z * z) < radius + 10) continue; // skip if too close to tower
-      const y = -79; // match base level
-      const dune = new THREE.Mesh(coneGeo, duneMat);
-      dune.position.set(x, y, z);
-      dune.rotation.y = Math.random() * Math.PI * 2;
-      const s = 0.7 + Math.random() * 1.2;
-      dune.scale.set(s, s, s);
-      dune.castShadow = true;
-      dune.receiveShadow = true;
-      scene.add(dune);
-    }
-
-        console.log("Ammo.js physics world initialized");
-      }).catch(err => {
-        console.error('Failed to load Ammo.js:', err);
-      });
-} else {
-  console.error('Ammo not loaded. Make sure ammo.js is available globally.');
-}
-
-
-
-
-
-
-// --- towerSide (side of tower)
-const towerSideMat = new THREE.MeshStandardMaterial({
-  map:       sandBrick,
-  color:     0xEED9A2,
-  side:      THREE.DoubleSide,
-  roughness: 1.0,
-  metalness: 0.0
-});
-const topRadius = 1 + radius;
-const bottomRadius = topRadius; // Make the cylinder straight
-const towerSideGeo = new THREE.CylinderGeometry(topRadius, bottomRadius, 80.4, segs); // height = 80
 const towerSide = new THREE.Mesh(towerSideGeo, towerSideMat);
-towerSide.receiveShadow = true;
-towerSide.translateY(-40.01); 
+towerSide.receiveShadow = false;
+towerSide.castShadow = true;
+towerSide.translateY(-40.01);
 scene.add(towerSide);
 
-// --- Base (Floor outside tower)
-const width = 5000, height = 5000;
-const baseGeo = new THREE.PlaneGeometry(width, height, 64, 64);
-
+// === Base Ground ===
+const baseGeo = new THREE.PlaneGeometry(5000, 5000, 64, 64);
 const baseMat = new THREE.MeshStandardMaterial({
-  map:       desertBase,
-  color:     0xEED9A2,
-  side:      THREE.DoubleSide,
+  map: desertBase,
+  color: 0xEED9A2,
+  side: THREE.DoubleSide,
   roughness: 1.0,
   metalness: 0.0
 });
 const base = new THREE.Mesh(baseGeo, baseMat);
-base.rotation.x = - Math.PI / 2; // or Math.PI / 2, depending on your up direction
-base.position.z = 0;
+base.rotation.x = -Math.PI / 2;
 base.position.y = -80;
 scene.add(base);
 
-// --- Cactus Models
+// === Load Props (Cactus, Rock, Boulder) ===
 const gltfLoader = new GLTFLoader();
 
-
-gltfLoader.load(
-'arenaProps/Cactus.glb',
-(gltf) => { 
-const proto = gltf.scene;
-const numCacti = 65;
-const spread = 600;
-for (let i = 0; i < numCacti; i++) {
-  const cactus = proto.clone(true);
-  const x = (Math.random() * 2 - 1) * spread;
-  const z = (Math.random() * 2 - 1) * spread;
-  cactus.position.set(x, -82, z); 
-  cactus.rotation.y = Math.random() * Math.PI * 2;
-  const s = 0.5 + Math.random() * 1.5;
-  cactus.scale.set(s, s, s);
-
-   cactus.traverse((child) => {
-    if (child.isMesh) {
-      child.castShadow = true;
-      child.receiveShadow = true;
-    }
-
-    });
-    scene.add(cactus);
-  }
-});
-
-
-
-gltfLoader.load(
-  'arenaProps/Rock.glb',
-  (gltf) => {
+function loadProps(path, count, scaleRange, yOffset) {
+  gltfLoader.load(path, (gltf) => {
     const proto = gltf.scene;
-    const numRocks = 30; // Adjust as desired
-    const spread = 600;
-    for (let i = 0; i < numRocks; i++) {
-      const rock = proto.clone(true);
-      const x = (Math.random() * 2 - 1) * spread;
-      const z = (Math.random() * 2 - 1) * spread;
-      rock.position.set(x, -80, z);
-      rock.rotation.y = Math.random() * Math.PI * 2;
-      // Random scale for height/size
-      const s = 3 + Math.random() * 5; // wider range for rocks
-      rock.scale.set(s, 3 + Math.random() * 5, s); // randomize Y for height
-      rock.traverse((child) => {
+    for (let i = 0; i < count; i++) {
+      const inst = proto.clone(true);
+      const x = (Math.random() * 2 - 1) * 600;
+      const z = (Math.random() * 2 - 1) * 600;
+      inst.position.set(x, yOffset, z);
+      inst.rotation.y = Math.random() * Math.PI * 2;
+      const s = scaleRange[0] + Math.random() * (scaleRange[1] - scaleRange[0]);
+      inst.scale.set(s, s, s);
+      inst.traverse((child) => {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
         }
       });
-      scene.add(rock);
+      scene.add(inst);
     }
-  }
-);
+  });
+}
 
+loadProps('arenaProps/Cactus.glb', 65, [0.5, 2.0], -82);
+loadProps('arenaProps/Rock.glb', 30, [3, 8], -80);
+loadProps('arenaProps/Boulder.glb', 20, [10, 30], -80);
 
-gltfLoader.load(
-  'arenaProps/Boulder.glb',
-  (gltf) => {
-    const proto = gltf.scene;
-    const numBoulders = 20; // Adjust as desired
-    const spread = 600;
-    for (let i = 0; i < numBoulders; i++) {
-      const boulder = proto.clone(true);
-      const x = (Math.random() * 2 - 1) * spread;
-      const z = (Math.random() * 2 - 1) * spread;
-      boulder.position.set(x, -80, z);
-      boulder.rotation.y = Math.random() * Math.PI * 2;
-      // Random scale for height/size
-      const s = 10 + Math.random() * 20; // wider range for rocks
-      boulder.scale.set(s, 10 + Math.random() * 20, s); // randomize Y for height
-      boulder.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      });
-      scene.add(boulder);
-    }
-  }
-);
-
-// --- Mountains
+// === Mountains ===
 const mountainGeo = new THREE.ConeGeometry(1, 1, 4);
 const mountainMat = new THREE.MeshStandardMaterial({
   color: 0x887766,
@@ -362,45 +196,31 @@ const mountainMat = new THREE.MeshStandardMaterial({
   roughness: 1.0,
   metalness: 0.0
 });
-const mountains = new THREE.InstancedMesh(mountainGeo, mountainMat, 100);
+const mountains = new THREE.InstancedMesh(mountainGeo, mountainMat, 125);
 const tmp = new THREE.Object3D();
 for (let i = 0; i < 125; i++) {
   const ang = Math.random() * Math.PI * 2;
-  const dist = 830 + Math.random() * 100; // distance from center, range from 830 to 930
-  const height = 45 + Math.random() * 100; // height range from 45 to 145
-
-  const baseY  = -80;             // updated to match new base level
+  const dist = 830 + Math.random() * 100;
+  const height = 45 + Math.random() * 100;
   tmp.position.set(
     Math.cos(ang) * dist,
-    baseY + height * 0.5,         
+    -80 + height * 0.5,
     Math.sin(ang) * dist
   );
-  // scale cone so its height is `height`
-  // original geo is height=1, radius=1, so scale Y by `height`
-  tmp.scale.set(height * 0.6, height, height * 0.6); 
-  tmp.rotation.y = Math.random() * Math.PI;  // random rotation
-
+  tmp.scale.set(height * 0.6, height, height * 0.6);
+  tmp.rotation.y = Math.random() * Math.PI;
   tmp.updateMatrix();
   mountains.setMatrixAt(i, tmp.matrix);
 }
 scene.add(mountains);
 
-
-
-// --- adding shadows to objects
+// === Shadow Config ===
 towerFloor.receiveShadow = true;
-towerFloor.castShadow = false;
-
-towerSide.receiveShadow = false;
 towerSide.castShadow = true;
-
-
 base.receiveShadow = true;
-mountains.castShadow = false;
 
-// Global Variable (DO NOT CHANGE)
+// === Global Exports ===
 window.scene = scene;
-
 window.worldToUV = worldToUV;
 window.trailCanvas = trailCanvas;
 window.trailCtx = trailCtx;
@@ -409,4 +229,30 @@ window.radius = radius;
 window.trailCanvasSize = trailCanvasSize;
 window.towerFloor = towerFloor;
 
+// === Physics Initialization with Ammo.js ===
+let physicsWorld;
+if (typeof window.Ammo === 'function') {
+  window.Ammo().then(Ammo => {
+    window.Ammo = Ammo;
 
+    const config = new Ammo.btDefaultCollisionConfiguration();
+    const dispatcher = new Ammo.btCollisionDispatcher(config);
+    const broadphase = new Ammo.btDbvtBroadphase();
+    const solver = new Ammo.btSequentialImpulseConstraintSolver();
+    physicsWorld = new Ammo.btDiscreteDynamicsWorld(dispatcher, broadphase, solver, config);
+    physicsWorld.setGravity(new Ammo.btVector3(0, -9.82, 0));
+    window.physicsWorld = physicsWorld;
+
+    const towerShape = new Ammo.btCylinderShape(new Ammo.btVector3(36, 40, 36));
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(0, -40, 0));
+    const motionState = new Ammo.btDefaultMotionState(transform);
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(0, motionState, towerShape, new Ammo.btVector3(0, 0, 0));
+    const body = new Ammo.btRigidBody(rbInfo);
+    body.setFriction(1.0);
+    physicsWorld.addRigidBody(body);
+  }).catch(console.error);
+} else {
+  console.error('Ammo not loaded');
+}
