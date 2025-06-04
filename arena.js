@@ -57,6 +57,22 @@ const sandBrick = loader.load('arenaTextures/sandBrick1.jpg');
 sandBrick.wrapS = sandBrick.wrapT = THREE.RepeatWrapping;
 sandBrick.repeat.set(32, 8);
 
+const conveyorVideo = document.createElement('video');
+conveyorVideo.src = 'arenaTextures/conveyorBelt.mp4';
+conveyorVideo.loop = true;
+conveyorVideo.muted = true;
+conveyorVideo.playsInline = true;
+conveyorVideo.autoplay = true;
+conveyorVideo.crossOrigin = 'anonymous';
+conveyorVideo.load();
+conveyorVideo.play();
+
+const conveyorTexture = new THREE.VideoTexture(conveyorVideo);
+conveyorTexture.wrapS = THREE.RepeatWrapping;
+conveyorTexture.wrapT = THREE.RepeatWrapping;
+conveyorTexture.repeat.set(1, 1);
+
+
 const sandImage = new window.Image();
 sandImage.src = 'arenaTextures/sandTexture.jpg';
 window.sandImage = sandImage;
@@ -113,21 +129,145 @@ towerFloor.position.set(0, 0.5, 0);
 towerFloor.receiveShadow = true;
 scene.add(towerFloor);
 
-// === Dunes ===
-const duneMat = towerFloorMat;
-const coneGeo = new THREE.ConeGeometry(5, 5, 64);
-for (let i = 0; i < 40; i++) {
-  const x = (Math.random() * 2 - 1) * 600;
-  const z = (Math.random() * 2 - 1) * 600;
-  if (Math.sqrt(x * x + z * z) < radius + 10) continue;
-  const dune = new THREE.Mesh(coneGeo, duneMat);
-  dune.position.set(x, -79, z);
-  dune.rotation.y = Math.random() * Math.PI * 2;
-  const s = 0.7 + Math.random() * 1.2;
-  dune.scale.set(s, s, s);
-  dune.castShadow = true;
-  dune.receiveShadow = true;
-  scene.add(dune);
+
+// Assign to towerFloor
+towerFloor.material.map = sandTexture;
+towerFloor.material.needsUpdate = true;
+
+
+// --- Conveyor Belts (Boosters) ---
+const conveyorBelts = [];
+const conveyorLength = 10;
+const conveyorWidth = 5;
+const conveyorHeight = 0.2;
+const conveyorMat = new THREE.MeshStandardMaterial({
+  map: conveyorTexture,
+  color: 0xffffff, // keep white to preserve GIF colors
+  roughness: 0.5,
+  metalness: 0.3,
+  side: THREE.DoubleSide
+});
+// Place 4 belts at 90-degree intervals around the towerFloor edge
+for (let i = 0; i < 4; i++) {
+  const angle = i * Math.PI / 2;
+  const r = radius * 0.65; // slightly inside the edge
+  const x = Math.cos(angle) * r;
+  const z = Math.sin(angle) * r;
+  const beltGeo = new THREE.BoxGeometry(conveyorLength, conveyorHeight, conveyorWidth);
+  const belt = new THREE.Mesh(beltGeo, conveyorMat);
+  belt.position.set(x, 0.6, z); // 0.6 to sit just above towerFloor
+  belt.rotation.y = -angle;
+  belt.receiveShadow = true;
+  belt.castShadow = true;
+  belt.userData.boostDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
+  conveyorBelts.push(belt);
+  scene.add(belt);
+  belt.material.map.rotation = Math.PI / 2; // Rotate 90 degrees
+belt.material.map.center.set(0.5, 0.5);   // Rotate around center
+belt.material.needsUpdate = true;
+}
+
+
+
+// --- Dunes 
+const duneMat = new THREE.MeshStandardMaterial({
+  map: sandTexture,
+  color: 0xEED9A2,
+  side: THREE.DoubleSide,
+  roughness: 1.0,
+  metalness: 0.0
+});
+
+const duneHeight = 5, duneRadius = 5, duneSegs = 64;
+const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
+
+/*class dune extends THREE.Mesh{
+    constructor(x, y, z) {
+        super(coneGeo, duneMat);
+        this.position.set(x, y, z);
+        this.receiveShadow = true;
+      }
+}
+const dune1 = new dune(18, 2.5, 5);   
+const dune2 = new dune(-15, 2.5, -7); 
+scene.add(dune1);
+scene.add(dune2);*/
+
+// === Ammo.js Physics Initialization ===
+let physicsWorld;
+
+if (typeof window.Ammo === 'function') {
+  window.Ammo().then(Ammo => {
+    window.Ammo = Ammo;
+
+    const collisionConfig = new Ammo.btDefaultCollisionConfiguration();
+    const dispatcher = new Ammo.btCollisionDispatcher(collisionConfig);
+    const broadphase = new Ammo.btDbvtBroadphase();
+    const solver = new Ammo.btSequentialImpulseConstraintSolver();
+    physicsWorld = new Ammo.btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfig);
+    physicsWorld.setGravity(new Ammo.btVector3(0, -9.82, 0));
+    window.physicsWorld = physicsWorld;
+    
+    const ARENA_RADIUS = 35;
+    const GROUND_HEIGHT = 0.2;
+
+    // Arena Ground Body
+    const towerRadius = ARENA_RADIUS + 1;
+    const towerHeight = 80.0;      // matches CylinderGeometry height
+
+    const towerShape = new Ammo.btCylinderShape(
+      new Ammo.btVector3(towerRadius, towerHeight / 2, towerRadius)
+    );
+
+    const towerTransform = new Ammo.btTransform();
+    towerTransform.setIdentity();
+    towerTransform.setOrigin(new Ammo.btVector3(0, -40.0, 0)); // center of cylinder
+
+    const towerMotionState = new Ammo.btDefaultMotionState(towerTransform);
+    const towerMass = 0; // static
+    const towerInertia = new Ammo.btVector3(0, 0, 0);
+
+    const towerRbInfo = new Ammo.btRigidBodyConstructionInfo(
+      towerMass, towerMotionState, towerShape, towerInertia
+    );
+    const towerBody = new Ammo.btRigidBody(towerRbInfo);
+    towerBody.setFriction(1.0);
+    physicsWorld.addRigidBody(towerBody);
+    
+    const duneMat = new THREE.MeshStandardMaterial({
+      map: sandTexture,
+      color: 0xEED9A2,
+      side: THREE.DoubleSide,
+      roughness: 1.0,
+      metalness: 0.0
+    });
+    const duneHeight = 5, duneRadius = 5, duneSegs = 64;
+    const coneGeo = new THREE.ConeGeometry(duneRadius, duneHeight, duneSegs);
+    
+    const numDunes = 40;
+    const duneSpread = 600;
+    for (let i = 0; i < numDunes; i++) {
+      const x = (Math.random() * 2 - 1) * duneSpread;
+      const z = (Math.random() * 2 - 1) * duneSpread;
+      // Place dunes on the base, not on the tower floor
+      if (Math.sqrt(x * x + z * z) < radius + 10) continue; // skip if too close to tower
+      const y = -79; // match base level
+      const dune = new THREE.Mesh(coneGeo, duneMat);
+      dune.position.set(x, y, z);
+      dune.rotation.y = Math.random() * Math.PI * 2;
+      const s = 0.7 + Math.random() * 1.2;
+      dune.scale.set(s, s, s);
+      dune.castShadow = true;
+      dune.receiveShadow = true;
+      scene.add(dune);
+    }
+
+        console.log("Ammo.js physics world initialized");
+      }).catch(err => {
+        console.error('Failed to load Ammo.js:', err);
+      });
+} else {
+  console.error('Ammo not loaded. Make sure ammo.js is available globally.');
 }
 
 // === Tower Side ===
@@ -198,7 +338,7 @@ const mountainMat = new THREE.MeshStandardMaterial({
 });
 const mountains = new THREE.InstancedMesh(mountainGeo, mountainMat, 125);
 const tmp = new THREE.Object3D();
-for (let i = 0; i < 125; i++) {
+for (let i = 0; i < 150; i++) {
   const ang = Math.random() * Math.PI * 2;
   const dist = 830 + Math.random() * 100;
   const height = 45 + Math.random() * 100;
@@ -228,6 +368,7 @@ window.trailTexture = trailTexture;
 window.radius = radius;
 window.trailCanvasSize = trailCanvasSize;
 window.towerFloor = towerFloor;
+window.conveyorBelts = conveyorBelts;
 
 // === Physics Initialization with Ammo.js ===
 let physicsWorld;
