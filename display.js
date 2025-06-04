@@ -339,7 +339,12 @@ loader.load('/models/crown.glb', (gltf) => {
   
 });
 
+// === Audio Setup for Crown ===
+const crownSound = new Audio('/assets/audio/crown-sound.mp3');
+crownSound.volume = 0.6;
+
 let crownInstance = null;
+let currentCrownHolder = null;
 export function updateCrownPosition(car1, car2, scene) {
  if (!crownModel || !car1 || !car2) return;
 
@@ -352,6 +357,7 @@ export function updateCrownPosition(car1, car2, scene) {
       scene.remove(crownInstance);
       crownInstance = null;
     }
+    currentCrownHolder = null;
     return;
   }
 
@@ -382,6 +388,13 @@ export function updateCrownPosition(car1, car2, scene) {
     }
   });
   crownInstance.quaternion.copy(leader.quaternion);
+
+  // === Play sound if new crown holder ===
+  if (leader !== currentCrownHolder) {
+    crownSound.currentTime = 0;
+    crownSound.play();
+    currentCrownHolder = leader;
+  }
 }
 
 export function showControlInstructions(callback) {
