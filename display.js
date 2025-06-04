@@ -383,3 +383,56 @@ export function updateCrownPosition(car1, car2, scene) {
   });
   crownInstance.quaternion.copy(leader.quaternion);
 }
+
+export function showControlInstructions(callback) {
+  const instructionDiv = document.createElement('div');
+  instructionDiv.id = 'control-instructions';
+  instructionDiv.style = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    color: white;
+    font-family: sans-serif;
+    font-size: 20px;
+    z-index: 3000;
+  `;
+
+  const leftControls = document.createElement('div');
+  leftControls.innerHTML = `
+    <h2 style="text-align: center;">Player 1</h2>
+    <p>W - Forward</p>
+    <p>S - Backward</p>
+    <p>A - Turn Left</p>
+    <p>D - Turn Right</p>
+  `;
+
+  const rightControls = document.createElement('div');
+  rightControls.innerHTML = `
+    <h2 style="text-align: center;">Player 2</h2>
+    <p>↑ - Forward</p>
+    <p>↓ - Backward</p>
+    <p>← - Turn Left</p>
+    <p>→ - Turn Right</p>
+  `;
+
+  instructionDiv.appendChild(leftControls);
+  instructionDiv.appendChild(rightControls);
+  document.body.appendChild(instructionDiv);
+
+  // Auto-remove after delay
+  setTimeout(() => {
+    instructionDiv.style.transition = 'opacity 0.5s ease';
+    instructionDiv.style.opacity = '0';
+    setTimeout(() => {
+      instructionDiv.remove();
+      if (callback) callback();
+    }, 500);
+  }, 2000);
+}

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { loadCarModel, setupCarPhysics, handleFalling, wrapWheelInPivot, createTextSprite} from './car.js';
 import { createCoordDisplay, createSpeedLabel, 
   updateHUD, initStats, createTitleScreen, 
-  showLoadingScreen, updateLoadingProgress, hideLoadingScreen, crownModel, updateCrownPosition
+  showLoadingScreen, updateLoadingProgress, hideLoadingScreen, crownModel, updateCrownPosition, showControlInstructions
 } from './display.js';
 
 // === Title Camera (Centered for Title Screen Only) ===
@@ -39,8 +39,13 @@ window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 let gameStarted = false;
 
 createTitleScreen(() => {
-  beginGameSetup();
+  showControlInstructions(() => {
+    setTimeout(() => {
+      beginGameSetup();
+    }, 500); // 0.5 seconds display time
+  });
 });
+
 
 
 let angle = 0;
