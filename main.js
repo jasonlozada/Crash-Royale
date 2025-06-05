@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { loadCarModel, setupCarPhysics, handleFalling, wrapWheelInPivot, createTextSprite} from './car.js';
 import { createCoordDisplay, createSpeedLabel, 
   updateHUD, initStats, createTitleScreen, 
-  showLoadingScreen, updateLoadingProgress, hideLoadingScreen, crownModel, updateCrownPosition, showControlInstructions
+  showLoadingScreen, updateLoadingProgress, hideLoadingScreen, updateCrownPosition, showControlInstructions
 } from './display.js';
 
-// === Title Camera (Centered for Title Screen Only) ===
+
 // === Title Camera: Overview of Arena ===
 const titleCamera = new THREE.PerspectiveCamera(
   60,                                 // wider field of view
@@ -13,9 +13,7 @@ const titleCamera = new THREE.PerspectiveCamera(
   0.1,
   2000
 );
-
-// Position it high and back to view the arena
-titleCamera.position.set(0, 50, 50);  // Adjust Y and Z as needed
+titleCamera.position.set(0, 50, 50);  
 
 // === Renderer Setup ===
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -69,6 +67,7 @@ function animateTitleScreen() {
 }
 
 animateTitleScreen();
+
 // === HUD Setup ===
 const coordDisplay1 = createCoordDisplay(10);
 const coordDisplay2 = createCoordDisplay(window.innerWidth / 2 + 10);
@@ -91,7 +90,6 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
 
   const body = car.physicsBody;
 
-  // === Constants ===
   const wheelRadius = 0.4;
   const maxAccelerationForce = 2500;
   const maxSpeed = 40;
@@ -104,11 +102,10 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
 
   body.setRestitution(1);
   body.setFriction(0.5);
-  // === Basis Vectors ===
+
   const forwardVec = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion).normalize();
   const rightVec = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion).normalize();
 
-  // === Acceleration Timer & Sign ===
   let accelSign = 0;
   if (keys[fw]) {
     accelSign = 1;
@@ -167,7 +164,6 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
     body.setAngularVelocity(angVel);
   }
 
-  // === Sync from Physics to Three.js ===
   const transform = new Ammo.btTransform();
   body.getMotionState().getWorldTransform(transform);
   const origin = transform.getOrigin();
@@ -196,16 +192,16 @@ function updateCar(car, keys, fw, bw, left, right, state, camera) {
   // === Camera Follow ===
 
   // === Dynamic camera offset (zoomed out if reversing) ===
-  const pressingBackward = keys[bw]; // where `bw` is 's' or 'ArrowDown'
+  const pressingBackward = keys[bw]; 
 
   const baseOffset = pressingBackward
-    ? new THREE.Vector3(0, 6, 8)  // front cam when pressing reverse
-    : new THREE.Vector3(0, 5, -10); // rear cam normally
+    ? new THREE.Vector3(0, 6, 8) 
+    : new THREE.Vector3(0, 5, -10); 
 
   // Smooth rotation-based offset
   const targetOffset = baseOffset.applyQuaternion(car.quaternion);
   state.camOffset ??= new THREE.Vector3().copy(targetOffset);
-  state.camOffset.lerp(targetOffset, 0.1); // Smooth offset transition
+  state.camOffset.lerp(targetOffset, 0.1);
 
   // === Camera Position ===
   const desiredCamPos = car.position.clone().add(state.camOffset);
@@ -221,7 +217,7 @@ const loadProgress = { car1: 0, car2: 0 };
 
 
 function beginGameSetup() {
-  showLoadingScreen(); // Show loading screen with bar
+  showLoadingScreen(); 
   
   waitForArenaInit().then(() => {
     physicsWorld = window.physicsWorld;
@@ -274,21 +270,21 @@ function beginGameSetup() {
   window.towerFloor.material.needsUpdate = true;
 }
 
-// === Step 3: Wait for Ammo and Scene to Load ===
+
 async function waitForArenaInit() {
   while (!window.Ammo || !window.physicsWorld || !window.scene) {
     await new Promise(res => setTimeout(res, 30));
   }
 }
 
-// === Step 4: Check if Both Cars Are Ready ===
+
 function checkCarsReady() {
   if (car1Loaded && car2Loaded) {
-    updateLoadingProgress(100); // force full progress bar
+    updateLoadingProgress(100); 
     setTimeout(() => {
       hideLoadingScreen();
       gameStarted = true;
-      animate(); // start game loop
+      animate();
     }, 500);
   }
 }
@@ -296,7 +292,6 @@ function checkCarsReady() {
 
 // For Sand Trail
 function isWheelOnGround(wheel) {
-  //Adjust threshold as needed
   return wheel.getWorldPosition(new THREE.Vector3()).y < 3 && wheel.getWorldPosition(new THREE.Vector3()).y > -3;
 }
 
@@ -341,7 +336,6 @@ function animate() {
     // Simple AABB check (could use more precise math if needed)
     const localPos = car.position.clone().sub(belt.position).applyAxisAngle(new THREE.Vector3(0,1,0), belt.rotation.y);
     if (Math.abs(localPos.x) < 6.5 && Math.abs(localPos.z) < 5 && Math.abs(car.position.y - belt.position.y) < 2) {
-      // Apply boost in belt's direction
       if (car.physicsBody) {
         const boost = belt.userData.boostDir.clone().multiplyScalar(100);
         car.physicsBody.activate();

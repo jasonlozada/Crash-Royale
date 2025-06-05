@@ -12,7 +12,6 @@ export function loadCarModel(modelPath, scene, onLoadCallback = () => {}, onProg
       model.scale.set(scale, scale, scale);
       model.position.set(0, 0, 0);
 
-      // Wheel names based on actual model
       const wheelNames = [
         'Wheel_1002',
         'Wheel_4001',
@@ -24,7 +23,6 @@ export function loadCarModel(modelPath, scene, onLoadCallback = () => {}, onProg
         .map(name => model.getObjectByName(name))
         .filter(Boolean);
 
-      // Optional: Fallback if wheelNames are missing from the model
       if (!model.wheels || model.wheels.length === 0) {
         model.wheels = [];
         model.traverse(obj => {
@@ -40,7 +38,7 @@ export function loadCarModel(modelPath, scene, onLoadCallback = () => {}, onProg
       model.traverse(obj => {
       if (obj.isMesh) {
       obj.castShadow = true;
-      obj.receiveShadow = true; // Optional: if you want wheels to receive shadows from other objects
+      obj.receiveShadow = true; 
     }
   });
 
@@ -67,7 +65,6 @@ export function setupCarPhysics(car, physicsWorld, position) {
     return;
   }
 
-  // === Create car compound shape ===
   const compoundShape = new Ammo.btCompoundShape();
 
   // Chassis
@@ -89,9 +86,6 @@ export function setupCarPhysics(car, physicsWorld, position) {
     }
   });
 
-
-
-  // === Create car rigid body ===
   const transform = new Ammo.btTransform();
   transform.setIdentity();
   transform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));

@@ -1,14 +1,9 @@
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-
 import * as THREE from 'three';
-// import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-// import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 let statsInstance = null;
 export function initStats() {
-
-
   if (statsInstance) return statsInstance; // prevent duplicates
 
   statsInstance = new Stats();
@@ -191,9 +186,8 @@ export function createTextSprite(text, options = {}) {
   ctx.font = `${fontSize}px Cinzel`;
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
-  texture.needsUpdate = true; // update after drawing
+  texture.needsUpdate = true; 
 });
-  // Load font before drawing
   document.fonts.load(font).then(() => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = font;
@@ -254,7 +248,6 @@ function fadeOutAndStart(callback) {
       if (titleSprite) scene.remove(titleSprite);
       if (promptSprite) scene.remove(promptSprite);
       if (audioBtn) audioBtn.style.display = 'none';
-        // hide after fade
       callback(); // Start the game
     } else {
       requestAnimationFrame(fade);
@@ -295,7 +288,6 @@ export function showLoadingScreen() {
     margin-top: 20px;
   `;
 
-  // Progress bar inner
   const barFill = document.createElement('div');
   barFill.id = 'progress-bar';
   barFill.style = `
@@ -363,7 +355,7 @@ export function updateCrownPosition(car1, car2, scene) {
 
   const leader = car1Score > car2Score ? car1 : car2;
 
-  // === Create crown instance if needed ===
+  // Create crown instance if needed
   if (!crownInstance) {
     crownInstance = crownModel.clone();
     crownInstance.scale.set(2, 2, 2);
@@ -371,7 +363,7 @@ export function updateCrownPosition(car1, car2, scene) {
     scene.add(crownInstance);
   }
 
-  // === Position above score label ===
+  // Position above score label
   const offsetY = 5;
   crownInstance.position.set(
     leader.position.x,
@@ -389,7 +381,7 @@ export function updateCrownPosition(car1, car2, scene) {
   });
   crownInstance.quaternion.copy(leader.quaternion);
 
-  // === Play sound if new crown holder ===
+  // Play sound if new crown holder
   if (leader !== currentCrownHolder) {
     crownSound.currentTime = 0;
     crownSound.play();
