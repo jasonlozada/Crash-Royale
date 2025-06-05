@@ -133,7 +133,7 @@ scene.add(towerFloor);
 const conveyorBelts = [];
 const conveyorLength = 10;
 const conveyorWidth = 5;
-const conveyorHeight = 0.2;
+const conveyorHeight = 0.01;
 const conveyorMat = new THREE.MeshStandardMaterial({
   map: conveyorTexture,
   color: 0xffffff,
