@@ -97,7 +97,7 @@ export function setupCarPhysics(car, physicsWorld, position) {
   const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, compoundShape, localInertia);
   const body = new Ammo.btRigidBody(rbInfo);
   body.setDamping(0.1, 0.5);
-  body.setRestitution(3); // default is 1, increase number for more bounce
+  body.setRestitution(1); // 0 to 1
 
   physicsWorld.addRigidBody(body);
   car.physicsBody = body;
