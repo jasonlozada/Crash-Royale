@@ -4,8 +4,7 @@ a CS174A Project made by Jason Lozada and Ruben Meza.
 
 **Crash Royale** is a multiplayer rover bumper car game built in **Three.js** with physics powered by **Ammo.js**. Featuring a stylized desert arena, real-time collisions, and smooth split-screen action.
 
-
----
+**NOTE:** This game is meant to be played in 60 FPS.
 
 ## 🛠 Setup Instructions
 
